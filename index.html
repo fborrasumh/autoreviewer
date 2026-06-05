@@ -1201,6 +1201,34 @@ async function runPipeline() {
   document.getElementById('start-label').textContent = '▶ Iniciar revisión';
 }
 
+async function callLLM(apiKey, userPrompt, model, temperature, maxTokens) {
+  const isAnth = model.startsWith('claude');
+  if (isAnth) {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: 'user', content: userPrompt }] })
+    });
+    if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.statusText); }
+    const d = await resp.json();
+    return d.content.map(b => b.text || '').join('');
+  } else {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ model, temperature, max_tokens: maxTokens, messages: [{ role: 'user', content: userPrompt }] })
+    });
+    if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.statusText); }
+    const d = await resp.json();
+    return d.choices[0].message.content;
+  }
+}
+
 function stopReview() {
   state.stopped = true; state.running = false;
   document.getElementById('stop-btn').disabled = true;
