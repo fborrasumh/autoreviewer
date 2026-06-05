@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AutoReviewer — Revisión Científica con IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0c0f;
+  --bg2:#0f1117;
+  --bg3:#151821;
+  --bg4:#1c2030;
+  --border:#232840;
+  --border2:#2e3554;
+  --accent:#4f8ef7;
+  --accent2:#7c5cfc;
+  --accent3:#36c984;
+  --warn:#f5a623;
+  --danger:#f25c5c;
+  --text:#e8eaf2;
+  --text2:#9aa3c2;
+  --text3:#5c6488;
+  --glow:rgba(79,142,247,0.18);
+  --glow2:rgba(124,92,252,0.15);
+  --radius:10px;
+  --radius2:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:14px;min-height:100vh;overflow-x:hidden}
+
+/* Noise texture overlay */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+
+/* SIDEBAR */
+#sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:var(--bg2);border-right:1px solid var(--border);z-index:100;display:flex;flex-direction:column;padding:0}
+.sb-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.sb-logo .logo-icon{font-size:22px;margin-bottom:6px}
+.sb-logo h1{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--text);letter-spacing:-.3px}
+.sb-logo span{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+.sb-section{padding:12px 8px 4px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;font-weight:500}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:var(--radius2);margin:1px 8px;cursor:pointer;color:var(--text2);font-size:13px;transition:all .15s;border:1px solid transparent}
+.sb-item:hover{background:var(--bg3);color:var(--text);border-color:var(--border)}
+.sb-item.active{background:var(--bg4);color:var(--accent);border-color:var(--border2)}
+.sb-item .ico{width:18px;text-align:center;font-size:14px}
+.sb-bottom{margin-top:auto;padding:12px 8px;border-top:1px solid var(--border)}
+.api-status{padding:10px 14px;border-radius:var(--radius2);background:var(--bg3);border:1px solid var(--border);cursor:pointer;font-size:12px}
+.api-status .label{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:1px}
+.api-status .val{color:var(--text2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+.dot.on{background:var(--accent3)}
+.dot.off{background:var(--text3)}
+
+/* MAIN CONTENT */
+#main{margin-left:240px;min-height:100vh;position:relative;z-index:1}
+.view{display:none;padding:32px 40px;max-width:900px}
+.view.active{display:block}
+
+/* HEADER */
+.page-header{margin-bottom:32px}
+.page-header h2{font-family:'Fraunces',serif;font-size:28px;font-weight:600;color:var(--text);margin-bottom:6px}
+.page-header p{color:var(--text2);font-size:13px;line-height:1.6}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.card-title{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* FORM ELEMENTS */
+label{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+input[type=text],input[type=password],textarea,select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius2);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:10px 12px;outline:none;transition:border-color .15s}
+input[type=text]:focus,input[type=password]:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+select option{background:var(--bg3)}
+.input-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.input-group{position:relative}
+.input-group .eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text3);font-size:14px;background:none;border:none;outline:none}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius2);border:none;font-family:'DM Mono',monospace;font-size:13px;cursor:pointer;transition:all .15s;font-weight:500}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#3a7de8;box-shadow:0 0 20px var(--glow)}
+.btn-secondary{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.btn-secondary:hover{background:var(--bg4);color:var(--text);border-color:var(--accent)}
+.btn-danger{background:rgba(242,92,92,.12);color:var(--danger);border:1px solid rgba(242,92,92,.25)}
+.btn-danger:hover{background:rgba(242,92,92,.2)}
+.btn-success{background:rgba(54,201,132,.12);color:var(--accent3);border:1px solid rgba(54,201,132,.25)}
+.btn-success:hover{background:rgba(54,201,132,.2)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* UPLOAD ZONE */
+#upload-zone{border:2px dashed var(--border2);border-radius:var(--radius);padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--bg3)}
+#upload-zone:hover,#upload-zone.dragover{border-color:var(--accent);background:rgba(79,142,247,.05)}
+#upload-zone .icon{font-size:36px;margin-bottom:12px;opacity:.6}
+#upload-zone h3{font-family:'Fraunces',serif;font-size:16px;color:var(--text);margin-bottom:6px}
+#upload-zone p{color:var(--text3);font-size:12px}
+#upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+#paper-info{display:none;padding:14px;background:rgba(54,201,132,.07);border:1px solid rgba(54,201,132,.2);border-radius:var(--radius2);margin-top:12px}
+#paper-info .file-name{color:var(--accent3);font-size:13px;font-weight:500}
+#paper-info .file-size{color:var(--text3);font-size:11px;margin-top:2px}
+
+/* AGENT PIPELINE */
+.agent-grid{display:grid;gap:10px}
+.agent-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.agent-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border2)}
+.agent-card.running::before{background:var(--accent);box-shadow:0 0 12px var(--glow)}
+.agent-card.done::before{background:var(--accent3)}
+.agent-card.error::before{background:var(--danger)}
+.agent-card.editing{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}
+.agent-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.agent-name{font-size:13px;font-weight:500;color:var(--text)}
+.agent-role{font-size:11px;color:var(--text3)}
+.agent-status{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg4)}
+.agent-status.idle{color:var(--text3)}
+.agent-status.running{color:var(--accent);animation:pulse 1.5s infinite}
+.agent-status.done{color:var(--accent3)}
+.agent-status.error{color:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.agent-desc{font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:10px}
+.prompt-editor{display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
+.prompt-editor.open{display:block}
+.prompt-editor textarea{font-size:12px;min-height:120px;font-family:'DM Mono',monospace;line-height:1.6}
+.prompt-editor .vars{margin-top:6px;font-size:10px;color:var(--text3)}
+.prompt-editor .vars code{background:var(--bg4);padding:1px 5px;border-radius:3px;color:var(--accent2);font-size:10px}
+.edit-toggle{font-size:10px;color:var(--text3);cursor:pointer;padding:3px 8px;border-radius:4px;background:var(--bg4);border:none;font-family:'DM Mono',monospace;transition:all .15s}
+.edit-toggle:hover{color:var(--accent2);background:rgba(124,92,252,.1)}
+
+/* PROGRESS */
+.pipeline-progress{margin-bottom:20px}
+.phase-steps{display:flex;gap:0;margin-bottom:16px}
+.phase-step{flex:1;padding:10px 6px;text-align:center;background:var(--bg3);border:1px solid var(--border);font-size:11px;color:var(--text3);position:relative;transition:all .2s}
+.phase-step:first-child{border-radius:var(--radius2) 0 0 var(--radius2)}
+.phase-step:last-child{border-radius:0 var(--radius2) var(--radius2) 0}
+.phase-step+.phase-step{border-left:none}
+.phase-step.active{background:rgba(79,142,247,.12);color:var(--accent);border-color:var(--accent)}
+.phase-step.done{background:rgba(54,201,132,.08);color:var(--accent3);border-color:rgba(54,201,132,.3)}
+.phase-step .phase-num{display:block;font-size:16px;margin-bottom:3px}
+.log-area{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 14px;max-height:200px;overflow-y:auto;font-size:11px;line-height:1.8;font-family:'Space Mono',monospace}
+.log-area .log-line{color:var(--text3)}
+.log-area .log-ok{color:var(--accent3)}
+.log-area .log-run{color:var(--accent)}
+.log-area .log-err{color:var(--danger)}
+.log-area .log-info{color:var(--warn)}
+
+/* REVIEW OUTPUT */
+.review-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0}
+.rtab{padding:8px 16px;font-size:12px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Mono',monospace}
+.rtab:hover{color:var(--text)}
+.rtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.rtab-content{display:none}
+.rtab-content.active{display:block}
+.review-output{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius2);padding:24px 28px;line-height:1.9;color:var(--text);min-height:300px;font-family:'Fraunces',serif;font-size:15px}
+.review-output h1,.review-output h2,.review-output h3{font-family:'Fraunces',serif;color:var(--text);margin:20px 0 10px}
+.review-output h1{font-size:22px;border-bottom:1px solid var(--border);padding-bottom:10px}
+.review-output h2{font-size:18px;color:var(--accent)}
+.review-output h3{font-size:15px;color:var(--text2)}
+.review-output p{margin-bottom:14px}
+.review-output ul,ol{padding-left:20px;margin-bottom:14px}
+.review-output li{margin-bottom:6px}
+.review-output code{background:var(--bg3);padding:1px 6px;border-radius:3px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2)}
+.review-output blockquote{border-left:3px solid var(--accent);padding-left:16px;color:var(--text2);margin:14px 0;font-style:italic}
+.review-output strong{color:var(--accent3)}
+.placeholder{color:var(--text3);text-align:center;padding:60px 20px;font-family:'DM Mono',monospace;font-size:13px}
+.placeholder .ico{font-size:40px;margin-bottom:12px;opacity:.3;display:block}
+
+/* SCORES */
+.scores-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.score-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:14px;text-align:center}
+.score-val{font-family:'Fraunces',serif;font-size:28px;font-weight:600;line-height:1}
+.score-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.score-high{color:var(--accent3)}
+.score-mid{color:var(--warn)}
+.score-low{color:var(--danger)}
+.score-bar{height:4px;border-radius:2px;background:var(--border);margin-top:8px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:2px;transition:width .5s ease}
+
+/* SETTINGS */
+.settings-table{width:100%;border-collapse:collapse}
+.settings-table th{text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:8px 12px;border-bottom:1px solid var(--border)}
+.settings-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.settings-table tr:last-child td{border-bottom:none}
+.settings-table input[type=text]{padding:6px 10px;font-size:12px}
+.settings-table select{padding:6px 10px;font-size:12px}
+.token-input{width:80px}
+
+/* NOTICE / ALERTS */
+.notice{padding:10px 14px;border-radius:var(--radius2);font-size:12px;line-height:1.5;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
+.notice-info{background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);color:var(--text2)}
+.notice-warn{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);color:var(--warn)}
+.notice-ok{background:rgba(54,201,132,.08);border:1px solid rgba(54,201,132,.2);color:var(--accent3)}
+.notice-err{background:rgba(242,92,92,.08);border:1px solid rgba(242,92,92,.2);color:var(--danger)}
+
+/* BUTTONS ROW */
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.btn-row.right{justify-content:flex-end}
+
+/* SPINNER */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(79,142,247,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* BADGE */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500}
+.badge-accent{background:rgba(79,142,247,.15);color:var(--accent)}
+.badge-green{background:rgba(54,201,132,.15);color:var(--accent3)}
+.badge-purple{background:rgba(124,92,252,.15);color:var(--accent2)}
+.badge-warn{background:rgba(245,166,35,.15);color:var(--warn)}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px;width:540px;max-width:95vw;max-height:85vh;overflow-y:auto}
+.modal h3{font-family:'Fraunces',serif;font-size:18px;margin-bottom:6px;color:var(--text)}
+.modal p{color:var(--text2);font-size:13px;margin-bottom:16px}
+
+/* FEEDBACK ITEMS */
+.feedback-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:14px;margin-bottom:10px}
+.feedback-item .fi-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.feedback-item .fi-type{font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:2px 8px;border-radius:20px}
+.fi-strength{background:rgba(54,201,132,.15);color:var(--accent3)}
+.fi-weakness{background:rgba(242,92,92,.15);color:var(--danger)}
+.fi-suggestion{background:rgba(79,142,247,.15);color:var(--accent)}
+.fi-question{background:rgba(124,92,252,.15);color:var(--accent2)}
+.feedback-item .fi-text{font-size:13px;color:var(--text2);line-height:1.6}
+.feedback-item .fi-section{font-size:11px;color:var(--text3);margin-top:6px}
+
+/* TOOLTIP */
+.tip{position:relative;display:inline-block;cursor:help;color:var(--text3);font-size:11px;vertical-align:middle}
+.tip::after{content:attr(data-tip);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);color:var(--text2);padding:6px 10px;border-radius:var(--radius2);font-size:11px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;max-width:240px;white-space:normal;z-index:200;font-family:'DM Mono',monospace}
+.tip:hover::after{opacity:1}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* RESPONSIVE */
+@media(max-width:800px){
+  #sidebar{width:60px}
+  .sb-logo h1,.sb-logo span,.sb-item span,.sb-section,.api-status .val,.api-status .label{display:none}
+  #main{margin-left:60px}
+  .view{padding:20px 16px}
+  .scores-grid{grid-template-columns:1fr 1fr}
+  .input-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sb-logo">
+    <div class="logo-icon">🔬</div>
+    <h1>AutoReviewer</h1>
+    <span>Multi-agent · v1.0</span>
+  </div>
+
+  <div class="sb-section">Principal</div>
+  <div class="sb-item active" onclick="showView('upload')" id="nav-upload">
+    <span class="ico">📄</span><span>Subir paper</span>
+  </div>
+  <div class="sb-item" onclick="showView('review')" id="nav-review">
+    <span class="ico">✨</span><span>Revisión</span>
+  </div>
+  <div class="sb-item" onclick="showView('scores')" id="nav-scores">
+    <span class="ico">📊</span><span>Puntuaciones</span>
+  </div>
+
+  <div class="sb-section">Configuración</div>
+  <div class="sb-item" onclick="showView('agents')" id="nav-agents">
+    <span class="ico">🤖</span><span>Agentes &amp; Prompts</span>
+  </div>
+  <div class="sb-item" onclick="showView('settings')" id="nav-settings">
+    <span class="ico">⚙️</span><span>Ajustes</span>
+  </div>
+
+  <div class="sb-bottom">
+    <div class="api-status" onclick="showView('settings')">
+      <div class="label"><span class="dot" id="api-dot">●</span> API Key</div>
+      <div class="val" id="api-val-display">No configurada</div>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+
+<!-- VIEW: UPLOAD -->
+<div class="view active" id="view-upload">
+  <div class="page-header">
+    <h2>🔬 Revisar artículo</h2>
+    <p>Sube un paper en PDF o pega el texto/abstract para obtener una revisión científica detallada generada por múltiples agentes IA.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📄 Documento a revisar</div>
+    <div id="upload-zone" onclick="document.getElementById('file-input').click()">
+      <input type="file" id="file-input" accept=".pdf,.txt" style="display:none" onchange="handleFileUpload(this)">
+      <div class="icon">📁</div>
+      <h3>Arrastra tu PDF aquí</h3>
+      <p>o haz clic para seleccionar · PDF, TXT · máx. 10 MB</p>
+    </div>
+    <div id="paper-info">
+      <div class="file-name" id="file-name-disp">—</div>
+      <div class="file-size" id="file-size-disp">—</div>
+    </div>
+
+    <div style="text-align:center;margin:16px 0;color:var(--text3);font-size:12px">— o pega el texto directamente —</div>
+
+    <div style="margin-bottom:12px">
+      <label>Título del artículo (opcional)</label>
+      <input type="text" id="paper-title" placeholder="Ej: Attention is All You Need">
+    </div>
+    <div>
+      <label>Texto / Abstract del paper <span style="color:var(--text3)">(puedes pegar todo el artículo)</span></label>
+      <textarea id="paper-text" rows="8" placeholder="Pega aquí el texto del paper, el abstract, o cualquier sección que quieras revisar..."></textarea>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎯 Tipo de revisión</div>
+    <div class="input-row">
+      <div>
+        <label>Modo de revisión</label>
+        <select id="review-mode">
+          <option value="comprehensive">Revisión completa (todos los agentes)</option>
+          <option value="quick">Revisión rápida (resumen + puntuación)</option>
+          <option value="technical">Revisión técnica (metodología + resultados)</option>
+          <option value="editorial">Revisión editorial (claridad + estructura)</option>
+        </select>
+      </div>
+      <div>
+        <label>Disciplina</label>
+        <select id="discipline">
+          <option value="general">General / Multidisciplinar</option>
+          <option value="biomedical">Biomédica / Clínica</option>
+          <option value="cs">Informática / IA / ML</option>
+          <option value="physics">Física / Matemáticas</option>
+          <option value="social">Ciencias Sociales</option>
+          <option value="engineering">Ingeniería</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label>Idioma de la revisión</label>
+      <select id="review-lang">
+        <option value="es">Español</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="btn-row right">
+    <button class="btn btn-secondary" onclick="resetAll()">🗑 Limpiar</button>
+    <button class="btn btn-primary" id="start-btn" onclick="startReview()">
+      <span class="spinner" id="start-spinner" style="display:none"></span>
+      <span id="start-label">▶ Iniciar revisión</span>
+    </button>
+  </div>
+</div>
+
+<!-- VIEW: REVIEW -->
+<div class="view" id="view-review">
+  <div class="page-header">
+    <h2>✨ Revisión en curso</h2>
+    <p>Pipeline de agentes ejecutándose. Puedes seguir el progreso en tiempo real.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🚦 Pipeline de agentes</div>
+    <div class="phase-steps" id="phase-steps">
+      <div class="phase-step" id="phase-0"><span class="phase-num">📋</span>Lectura</div>
+      <div class="phase-step" id="phase-1"><span class="phase-num">🔍</span>Análisis</div>
+      <div class="phase-step" id="phase-2"><span class="phase-num">✍️</span>Revisión</div>
+      <div class="phase-step" id="phase-3"><span class="phase-num">🎯</span>Síntesis</div>
+      <div class="phase-step" id="phase-4"><span class="phase-num">✅</span>Decisión</div>
+    </div>
+    <div class="log-area" id="log-area">
+      <div class="log-line">— Sistema listo. Pulsa "Iniciar revisión" para comenzar. —</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🤖 Estado de los agentes</div>
+    <div class="agent-grid" id="agent-status-grid">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopReview()" disabled>⏹ Parar</button>
+    <button class="btn btn-secondary btn-sm" onclick="showView('upload')">← Editar opciones</button>
+    <div style="flex:1"></div>
+    <span id="run-summary" style="font-size:12px;color:var(--text3);align-self:center"></span>
+  </div>
+</div>
+
+<!-- VIEW: SCORES -->
+<div class="view" id="view-scores">
+  <div class="page-header">
+    <h2>📊 Puntuaciones &amp; Feedback</h2>
+    <p>Análisis cuantitativo y cualitativo del paper generado por el agente evaluador.</p>
+  </div>
+
+  <div id="scores-placeholder" class="placeholder">
+    <span class="ico">📊</span>
+    Las puntuaciones aparecerán aquí después de ejecutar la revisión.
+  </div>
+
+  <div id="scores-content" style="display:none">
+    <div class="scores-grid" id="scores-grid"></div>
+
+    <div class="review-tabs">
+      <button class="rtab active" onclick="switchRTab(this,'tab-feedback')">💬 Feedback detallado</button>
+      <button class="rtab" onclick="switchRTab(this,'tab-summary')">📝 Resumen ejecutivo</button>
+      <button class="rtab" onclick="switchRTab(this,'tab-raw')">📄 Revisión completa</button>
+    </div>
+
+    <div class="rtab-content active" id="tab-feedback">
+      <div id="feedback-list"></div>
+    </div>
+    <div class="rtab-content" id="tab-summary">
+      <div class="review-output" id="summary-output"></div>
+    </div>
+    <div class="rtab-content" id="tab-raw">
+      <div class="review-output" id="raw-output"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary btn-sm" onclick="copyReview()">📋 Copiar revisión</button>
+      <button class="btn btn-secondary btn-sm" onclick="downloadReview()">⬇ Descargar .txt</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW: AGENTS -->
+<div class="view" id="view-agents">
+  <div class="page-header">
+    <h2>🤖 Agentes &amp; Prompts</h2>
+    <p>Edita los system prompts de cada agente. Los cambios se aplican en la próxima ejecución. Usa las variables disponibles para personalizar cada etapa.</p>
+  </div>
+
+  <div class="notice notice-info">
+    ℹ️ Variables disponibles: <code>{{paper_text}}</code> <code>{{paper_title}}</code> <code>{{discipline}}</code> <code>{{lang}}</code> <code>{{previous_analysis}}</code> <code>{{scores}}</code>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:16px">
+    <button class="btn btn-secondary btn-sm" onclick="resetAllPrompts()">↺ Restaurar defaults</button>
+    <button class="btn btn-secondary btn-sm" onclick="expandAllAgents()">⊞ Expandir todos</button>
+    <button class="btn btn-secondary btn-sm" onclick="collapseAllAgents()">⊟ Colapsar todos</button>
+  </div>
+
+  <div class="agent-grid" id="agent-edit-grid">
+    <!-- Rendered by JS -->
+  </div>
+</div>
+
+<!-- VIEW: SETTINGS -->
+<div class="view" id="view-settings">
+  <div class="page-header">
+    <h2>⚙️ Ajustes</h2>
+    <p>Configuración de la API, modelos y parámetros globales.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔑 OpenAI API Key</div>
+    <div class="notice notice-info">
+      🔒 La key se usa directamente desde tu navegador y nunca sale de él. No se envía a ningún servidor externo.
+    </div>
+    <label>API Key</label>
+    <div class="input-group" style="margin-bottom:12px">
+      <input type="password" id="api-key-input" placeholder="sk-...">
+      <button class="eye" onclick="toggleKey()">👁</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <input type="checkbox" id="save-key" style="width:auto">
+      <label style="margin:0;text-transform:none;font-size:12px;color:var(--text2)">Guardar en localStorage</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-sm" onclick="saveApiKey()">💾 Guardar</button>
+      <button class="btn btn-danger btn-sm" onclick="clearApiKey()">🗑 Olvidar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🧠 Modelo &amp; Parámetros</div>
+    <div class="input-row">
+      <div>
+        <label>Modelo OpenAI</label>
+        <select id="model-select">
+          <option value="claude-sonnet-4-20250514">claude-sonnet-4 (Anthropic)</option>
+          <option value="gpt-4o-mini" selected>gpt-4o-mini — rápido ✅</option>
+          <option value="gpt-4o">gpt-4o — alta calidad</option>
+          <option value="gpt-4-turbo">gpt-4-turbo</option>
+          <option value="gpt-3.5-turbo">gpt-3.5-turbo — económico</option>
+        </select>
+      </div>
+      <div>
+        <label>Temperatura <span class="tip" data-tip="0=determinista, 1=creativo">?</span></label>
+        <input type="text" id="temp-input" value="0.3" style="width:80px">
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label>Max tokens por agente</label>
+      <input type="text" id="max-tokens-input" value="1500">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 Guardar ajustes</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 Estadísticas de uso</div>
+    <div id="usage-stats" style="font-size:13px;color:var(--text2);line-height:2">
+      Revisiones completadas: <strong id="stat-reviews">0</strong><br>
+      Tokens usados (estimado): <strong id="stat-tokens">0</strong><br>
+      Coste estimado: <strong id="stat-cost">$0.00</strong>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-danger btn-sm" onclick="clearStats()">🗑 Limpiar estadísticas</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let state = {
+  apiKey: '',
+  model: 'gpt-4o-mini',
+  temperature: 0.3,
+  maxTokens: 1500,
+  paperText: '',
+  paperTitle: '',
+  discipline: 'general',
+  reviewLang: 'es',
+  reviewMode: 'comprehensive',
+  running: false,
+  stopped: false,
+  results: null,
+  stats: { reviews: 0, tokens: 0, cost: 0 }
+};
+
+// ═══════════════════════════════════════════════
+// AGENT DEFINITIONS
+// ═══════════════════════════════════════════════
+const DEFAULT_AGENTS = [
+  {
+    id: 'reader',
+    name: 'Reader',
+    role: 'Lectura y estructuración',
+    phase: 0,
+    icon: '📋',
+    desc: 'Lee el paper, extrae metadata, identifica secciones y genera un índice estructurado del contenido.',
+    vars: ['{{paper_text}}', '{{paper_title}}', '{{discipline}}', '{{lang}}'],
+    prompt: `Eres un experto lector y analizador de artículos científicos. Tu tarea es procesar el siguiente artículo y extraer su estructura.
+
+DISCIPLINA: {{discipline}}
+IDIOMA DE RESPUESTA: {{lang}}
+
+Analiza el paper y responde en JSON estricto con este formato:
+{
+  "title": "título detectado",
+  "authors": "autores si están disponibles",
+  "abstract": "abstract o resumen (primeras 300 palabras si no hay abstract)",
+  "sections": ["lista", "de", "secciones", "detectadas"],
+  "keywords": ["palabras", "clave"],
+  "type": "tipo de artículo: experimental/review/theoretical/case_study/other",
+  "year": "año si disponible",
+  "venue": "revista/conferencia si disponible"
+}
+
+PAPER:
+{{paper_text}}`
+  },
+  {
+    id: 'methodologist',
+    name: 'Methodologist',
+    role: 'Análisis metodológico',
+    phase: 1,
+    icon: '🔬',
+    desc: 'Evalúa la solidez metodológica: diseño del estudio, tamaño muestral, estadística, reproducibilidad.',
+    vars: ['{{paper_text}}', '{{paper_title}}', '{{discipline}}', '{{lang}}', '{{previous_analysis}}'],
+    prompt: `Eres un experto en metodología científica especializado en {{discipline}}. Tu rol es analizar con rigor la metodología del artículo.
+
+IDIOMA DE RESPUESTA: {{lang}}
+ESTRUCTURA DEL PAPER: {{previous_analysis}}
+
+Evalúa los siguientes aspectos y proporciona un análisis detallado en texto libre (NO JSON):
+
+1. **Diseño del estudio**: ¿Es apropiado para los objetivos?
+2. **Muestra/Datos**: Tamaño, representatividad, sesgo de selección
+3. **Variables**: Definición, operacionalización, confusores
+4. **Análisis estadístico/computacional**: Adecuación, potencia, corrección por múltiples comparaciones
+5. **Reproducibilidad**: Disponibilidad de datos/código, descripción del protocolo
+6. **Limitaciones metodológicas**: Lista las principales
+7. **Puntuación metodológica**: [X/10] con justificación breve
+
+Sé específico y cita partes concretas del paper. Sé constructivo pero riguroso.
+
+PAPER:
+{{paper_text}}`
+  },
+  {
+    id: 'critic',
+    name: 'Critic',
+    role: 'Revisión crítica de contenido',
+    phase: 2,
+    icon: '🔍',
+    desc: 'Analiza la solidez de los argumentos, la validez de las conclusiones y la relación con la literatura.',
+    vars: ['{{paper_text}}', '{{paper_title}}', '{{discipline}}', '{{lang}}', '{{previous_analysis}}'],
+    prompt: `Eres un revisor senior de revistas científicas de alto impacto en {{discipline}}. Realiza una revisión crítica del contenido.
+
+IDIOMA DE RESPUESTA: {{lang}}
+ANÁLISIS PREVIO: {{previous_analysis}}
+
+Evalúa:
+
+1. **Novedad y contribución**: ¿Qué aporta este paper que no existía? ¿Es incremental o genuinamente novedoso?
+2. **Solidez de los argumentos**: ¿Están bien respaldadas las afirmaciones por los datos/evidencia?
+3. **Conclusiones**: ¿Son las conclusiones apropiadas dada la evidencia presentada? ¿Hay overfitting de interpretación?
+4. **Relación con el estado del arte**: ¿Cita apropiadamente la literatura relevante? ¿Ignora trabajo relacionado importante?
+5. **Reproducibilidad científica**: ¿Podría otro grupo replicar este trabajo?
+6. **Potenciales sesgos**: Sesgo de confirmación, cherry-picking, p-hacking, HARKing
+7. **Puntuación de impacto científico**: [X/10]
+
+Incluye al menos 3 fortalezas y 3 debilidades concretas.
+
+PAPER:
+{{paper_text}}`
+  },
+  {
+    id: 'editor',
+    name: 'Editor',
+    role: 'Claridad, estructura y escritura',
+    phase: 2,
+    icon: '✍️',
+    desc: 'Evalúa la claridad expositiva, la estructura narrativa, las figuras/tablas y el estilo de escritura.',
+    vars: ['{{paper_text}}', '{{paper_title}}', '{{lang}}', '{{previous_analysis}}'],
+    prompt: `Eres un editor científico experimentado. Evalúa la calidad de escritura y presentación del artículo.
+
+IDIOMA DE RESPUESTA: {{lang}}
+
+Analiza:
+
+1. **Claridad del abstract**: ¿Resume adecuadamente el paper? ¿Menciona resultados concretos?
+2. **Estructura narrativa**: ¿El flujo lógico del paper es coherente? ¿Se desarrolla bien la historia científica?
+3. **Claridad expositiva**: ¿Son los conceptos técnicos bien explicados? ¿Hay jerga innecesaria?
+4. **Figuras y tablas**: ¿Son informativas y bien referenciadas? ¿Tienen títulos adecuados?
+5. **Referencias**: ¿Son apropiadas, recientes y completas?
+6. **Formato y estilo**: Consistencia, gramática (en la medida posible), formato de citas
+7. **Puntuación editorial**: [X/10]
+
+Proporciona sugerencias concretas de mejora con ejemplos cuando sea posible.
+
+PAPER:
+{{paper_text}}`
+  },
+  {
+    id: 'ethicist',
+    name: 'Ethics Reviewer',
+    role: 'Evaluación ética y de integridad',
+    phase: 3,
+    icon: '⚖️',
+    desc: 'Revisa aspectos éticos: conflictos de interés, bienestar de sujetos, integridad de datos, plagio potencial.',
+    vars: ['{{paper_text}}', '{{paper_title}}', '{{discipline}}', '{{lang}}'],
+    prompt: `Eres un revisor especializado en ética de la investigación científica. Evalúa los aspectos éticos del artículo.
+
+DISCIPLINA: {{discipline}}
+IDIOMA: {{lang}}
+
+Revisa:
+
+1. **Declaración de conflictos de interés**: ¿Se mencionan? ¿Parecen apropiados?
+2. **Aprobación ética** (si aplica): Estudios con humanos/animales, consentimiento informado
+3. **Integridad de datos**: ¿Hay señales de manipulación? ¿Los datos parecen consistentes?
+4. **Autoría**: ¿Parece apropiada? ¿Hay indicios de autoría inapropiada o ghost authorship?
+5. **Financiación**: ¿Hay potencial sesgo de financiador?
+6. **Impacto potencial negativo**: ¿Podría este trabajo tener aplicaciones dañinas?
+7. **Señales de integridad académica**: Posible auto-plagio, fragmentación de resultados (salami slicing)
+8. **Puntuación ética**: [X/10]
+
+Si no hay aspectos éticos preocupantes, indícalo explícitamente con justificación.
+
+PAPER:
+{{paper_text}}`
+  },
+  {
+    id: 'synthesizer',
+    name: 'Synthesizer',
+    role: 'Síntesis y puntuación final',
+    phase: 3,
+    icon: '🎯',
+    desc: 'Integra todos los análisis previos y genera una síntesis consolidada con puntuaciones y recomendación editorial.',
+    vars: ['{{paper_text}}', '{{paper_title}}', '{{lang}}', '{{previous_analysis}}'],
+    prompt: `Eres el editor jefe de una revista científica de alto impacto. Basándote en los análisis previos de los revisores, elabora una síntesis consolidada.
+
+IDIOMA: {{lang}}
+ANÁLISIS PREVIOS DE LOS AGENTES:
+{{previous_analysis}}
+
+Genera una síntesis estructurada con:
+
+## PUNTUACIONES FINALES
+- Metodología: X/10
+- Contenido científico: X/10
+- Claridad editorial: X/10
+- Ética: X/10
+- **PUNTUACIÓN GLOBAL: X/10**
+
+## PRINCIPALES FORTALEZAS
+(3-5 puntos concretos)
+
+## PRINCIPALES DEBILIDADES
+(3-5 puntos concretos)
+
+## RECOMENDACIONES PRIORITARIAS
+(Lista numerada de los cambios más importantes, ordenados por impacto)
+
+## RECOMENDACIÓN EDITORIAL
+Elige UNA: Accept / Minor Revision / Major Revision / Reject
+Justifica en 2-3 frases.
+
+## RESUMEN PARA LOS AUTORES
+(Párrafo de 150-200 palabras en tono constructivo dirigido a los autores)`
+  },
+  {
+    id: 'scorer',
+    name: 'Scorer',
+    role: 'Extracción de puntuaciones',
+    phase: 4,
+    icon: '📊',
+    desc: 'Extrae y estructura las puntuaciones finales en formato JSON para los gráficos.',
+    vars: ['{{previous_analysis}}', '{{lang}}'],
+    prompt: `Eres un extractor de datos. A partir de la síntesis del revisor, extrae las puntuaciones y genera SOLO un JSON válido.
+
+SÍNTESIS:
+{{previous_analysis}}
+
+Responde ÚNICAMENTE con JSON, sin texto adicional, sin markdown:
+{
+  "methodology": 7,
+  "content": 8,
+  "editorial": 6,
+  "ethics": 9,
+  "overall": 7.5,
+  "recommendation": "Minor Revision",
+  "strengths": ["fortaleza 1", "fortaleza 2", "fortaleza 3"],
+  "weaknesses": ["debilidad 1", "debilidad 2", "debilidad 3"],
+  "feedback_items": [
+    {"type": "strength", "section": "Metodología", "text": "descripción de la fortaleza"},
+    {"type": "weakness", "section": "Resultados", "text": "descripción de la debilidad"},
+    {"type": "suggestion", "section": "Discusión", "text": "sugerencia de mejora"},
+    {"type": "question", "section": "General", "text": "pregunta para los autores"}
+  ]
+}`
+  }
+];
+
+// ═══════════════════════════════════════════════
+// AGENT STATE (runtime + editable prompts)
+// ═══════════════════════════════════════════════
+let agents = JSON.parse(JSON.stringify(DEFAULT_AGENTS));
+let agentStatuses = {};
+agents.forEach(a => agentStatuses[a.id] = 'idle');
+
+// Load from localStorage
+function loadStorage() {
+  const saved = localStorage.getItem('autoreviewer_agents');
+  if (saved) {
+    const savedPrompts = JSON.parse(saved);
+    agents.forEach(a => {
+      if (savedPrompts[a.id]) a.prompt = savedPrompts[a.id];
+    });
+  }
+  const key = localStorage.getItem('autoreviewer_key');
+  if (key) { state.apiKey = key; document.getElementById('api-key-input').value = key; document.getElementById('save-key').checked = true; }
+  const settings = localStorage.getItem('autoreviewer_settings');
+  if (settings) {
+    const s = JSON.parse(settings);
+    state.model = s.model || state.model;
+    state.temperature = s.temperature || state.temperature;
+    state.maxTokens = s.maxTokens || state.maxTokens;
+    document.getElementById('model-select').value = state.model;
+    document.getElementById('temp-input').value = state.temperature;
+    document.getElementById('max-tokens-input').value = state.maxTokens;
+  }
+  const stats = localStorage.getItem('autoreviewer_stats');
+  if (stats) { state.stats = JSON.parse(stats); updateStatsUI(); }
+  updateApiStatusUI();
+}
+
+function saveAgentPrompts() {
+  const obj = {};
+  agents.forEach(a => obj[a.id] = a.prompt);
+  localStorage.setItem('autoreviewer_agents', JSON.stringify(obj));
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  document.getElementById('nav-' + id).classList.add('active');
+  if (id === 'agents') renderAgentEditGrid();
+  if (id === 'review') renderAgentStatusGrid();
+}
+
+// ═══════════════════════════════════════════════
+// FILE UPLOAD
+// ═══════════════════════════════════════════════
+function handleFileUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('file-name-disp').textContent = file.name;
+  document.getElementById('file-size-disp').textContent = (file.size / 1024).toFixed(1) + ' KB';
+  document.getElementById('paper-info').style.display = 'block';
+  if (file.name.endsWith('.txt')) {
+    const reader = new FileReader();
+    reader.onload = e => { document.getElementById('paper-text').value = e.target.result; };
+    reader.readAsText(file);
+  } else if (file.name.endsWith('.pdf')) {
+    addLog('⚠ PDF subido. Para extraer texto de PDF instala pdf.js o usa el campo de texto. El nombre del archivo se ha guardado.', 'info');
+    if (!document.getElementById('paper-title').value) {
+      document.getElementById('paper-title').value = file.name.replace('.pdf','');
+    }
+  }
+}
+// Drag and drop
+document.addEventListener('DOMContentLoaded', () => {
+  const zone = document.getElementById('upload-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) { const dt = new DataTransfer(); dt.items.add(file); document.getElementById('file-input').files = dt.files; handleFileUpload(document.getElementById('file-input')); }
+  });
+  loadStorage();
+  renderAgentStatusGrid();
+  renderAgentEditGrid();
+});
+
+// ═══════════════════════════════════════════════
+// API KEY
+// ═══════════════════════════════════════════════
+function saveApiKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val) { alert('Introduce una API key'); return; }
+  state.apiKey = val;
+  if (document.getElementById('save-key').checked) localStorage.setItem('autoreviewer_key', val);
+  updateApiStatusUI();
+  showNotice('✅ API key guardada', 'ok');
+}
+function clearApiKey() {
+  state.apiKey = '';
+  document.getElementById('api-key-input').value = '';
+  localStorage.removeItem('autoreviewer_key');
+  updateApiStatusUI();
+}
+function toggleKey() {
+  const inp = document.getElementById('api-key-input');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+function updateApiStatusUI() {
+  const dot = document.getElementById('api-dot');
+  const val = document.getElementById('api-val-display');
+  if (state.apiKey) {
+    dot.className = 'dot on';
+    val.textContent = state.apiKey.substring(0, 8) + '...';
+  } else {
+    dot.className = 'dot off';
+    val.textContent = 'No configurada';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════
+function saveSettings() {
+  state.model = document.getElementById('model-select').value;
+  state.temperature = parseFloat(document.getElementById('temp-input').value) || 0.3;
+  state.maxTokens = parseInt(document.getElementById('max-tokens-input').value) || 1500;
+  localStorage.setItem('autoreviewer_settings', JSON.stringify({ model: state.model, temperature: state.temperature, maxTokens: state.maxTokens }));
+  showNotice('✅ Ajustes guardados', 'ok');
+}
+
+// ═══════════════════════════════════════════════
+// AGENT EDIT GRID
+// ═══════════════════════════════════════════════
+function renderAgentEditGrid() {
+  const grid = document.getElementById('agent-edit-grid');
+  grid.innerHTML = '';
+  agents.forEach((agent, idx) => {
+    const div = document.createElement('div');
+    div.className = 'agent-card';
+    div.id = 'edit-card-' + agent.id;
+    div.innerHTML = `
+      <div class="agent-header">
+        <div>
+          <div class="agent-name">${agent.icon} ${agent.name} <span class="badge badge-purple" style="margin-left:6px">Fase ${agent.phase + 1}</span></div>
+          <div class="agent-role">${agent.role}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="edit-toggle" onclick="togglePromptEditor('${agent.id}')">✏️ Editar prompt</button>
+        </div>
+      </div>
+      <div class="agent-desc">${agent.desc}</div>
+      <div class="prompt-editor" id="editor-${agent.id}">
+        <label style="margin-bottom:6px">System Prompt del agente</label>
+        <textarea id="prompt-${agent.id}" rows="10">${escapeHtml(agent.prompt)}</textarea>
+        <div class="vars">Variables: ${agent.vars.map(v => `<code>${v}</code>`).join(' ')}</div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-primary btn-sm" onclick="saveAgentPrompt('${agent.id}')">💾 Guardar</button>
+          <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompt('${agent.id}')">↺ Reset</button>
+        </div>
+      </div>`;
+    grid.appendChild(div);
+  });
+}
+
+function togglePromptEditor(id) {
+  const ed = document.getElementById('editor-' + id);
+  const card = document.getElementById('edit-card-' + id);
+  const isOpen = ed.classList.contains('open');
+  ed.classList.toggle('open');
+  card.classList.toggle('editing', !isOpen);
+}
+function expandAllAgents() { agents.forEach(a => { document.getElementById('editor-' + a.id)?.classList.add('open'); document.getElementById('edit-card-' + a.id)?.classList.add('editing'); }); }
+function collapseAllAgents() { agents.forEach(a => { document.getElementById('editor-' + a.id)?.classList.remove('open'); document.getElementById('edit-card-' + a.id)?.classList.remove('editing'); }); }
+function saveAgentPrompt(id) {
+  const ta = document.getElementById('prompt-' + id);
+  const agent = agents.find(a => a.id === id);
+  agent.prompt = ta.value;
+  saveAgentPrompts();
+  showNotice(`✅ Prompt de ${agent.name} guardado`, 'ok');
+}
+function resetAgentPrompt(id) {
+  const def = DEFAULT_AGENTS.find(a => a.id === id);
+  const agent = agents.find(a => a.id === id);
+  agent.prompt = def.prompt;
+  document.getElementById('prompt-' + id).value = def.prompt;
+  saveAgentPrompts();
+}
+function resetAllPrompts() {
+  if (!confirm('¿Restaurar todos los prompts a los valores por defecto?')) return;
+  agents = JSON.parse(JSON.stringify(DEFAULT_AGENTS));
+  saveAgentPrompts();
+  renderAgentEditGrid();
+  showNotice('↺ Todos los prompts restaurados', 'info');
+}
+
+// ═══════════════════════════════════════════════
+// AGENT STATUS GRID
+// ═══════════════════════════════════════════════
+function renderAgentStatusGrid() {
+  const grid = document.getElementById('agent-status-grid');
+  grid.innerHTML = '';
+  agents.forEach(agent => {
+    const status = agentStatuses[agent.id] || 'idle';
+    const div = document.createElement('div');
+    div.className = `agent-card ${status}`;
+    div.id = 'status-card-' + agent.id;
+    div.innerHTML = `
+      <div class="agent-header">
+        <div>
+          <div class="agent-name">${agent.icon} ${agent.name} <span class="badge badge-purple" style="margin-left:6px">Fase ${agent.phase + 1}</span></div>
+          <div class="agent-role">${agent.role}</div>
+        </div>
+        <span class="agent-status ${status}" id="status-badge-${agent.id}">${statusLabel(status)}</span>
+      </div>
+      <div class="agent-desc">${agent.desc}</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function updateAgentStatus(id, status) {
+  agentStatuses[id] = status;
+  const card = document.getElementById('status-card-' + id);
+  const badge = document.getElementById('status-badge-' + id);
+  if (card) { card.className = `agent-card ${status}`; }
+  if (badge) { badge.className = `agent-status ${status}`; badge.textContent = statusLabel(status); }
+}
+function statusLabel(s) { return { idle: '— idle', running: '⟳ ejecutando', done: '✓ hecho', error: '✗ error' }[s] || s; }
+
+// ═══════════════════════════════════════════════
+// LOG
+// ═══════════════════════════════════════════════
+function addLog(msg, type = 'line') {
+  const area = document.getElementById('log-area');
+  const div = document.createElement('div');
+  div.className = 'log-' + type;
+  div.textContent = new Date().toLocaleTimeString('es') + '  ' + msg;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+function clearLog() { document.getElementById('log-area').innerHTML = ''; }
+
+// ═══════════════════════════════════════════════
+// PHASES
+// ═══════════════════════════════════════════════
+function setPhase(n) {
+  for (let i = 0; i < 5; i++) {
+    const el = document.getElementById('phase-' + i);
+    el.className = 'phase-step' + (i < n ? ' done' : i === n ? ' active' : '');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// MAIN REVIEW PIPELINE
+// ═══════════════════════════════════════════════
+async function startReview() {
+  const paperText = document.getElementById('paper-text').value.trim();
+  const paperTitle = document.getElementById('paper-title').value.trim();
+  const apiKey = state.apiKey || document.getElementById('api-key-input').value.trim();
+
+  if (!paperText) { alert('Por favor, pega el texto del paper o sube un archivo.'); return; }
+  if (!apiKey) { alert('Configura tu API key en Ajustes primero.'); showView('settings'); return; }
+
+  state.apiKey = apiKey;
+  state.paperText = paperText;
+  state.paperTitle = paperTitle || 'Paper sin título';
+  state.discipline = document.getElementById('discipline').value;
+  state.reviewLang = document.getElementById('review-lang').value;
+  state.reviewMode = document.getElementById('review-mode').value;
+  state.running = true;
+  state.stopped = false;
+
+  // Get model from settings
+  state.model = document.getElementById('model-select').value;
+  state.temperature = parseFloat(document.getElementById('temp-input').value) || 0.3;
+  state.maxTokens = parseInt(document.getElementById('max-tokens-input').value) || 1500;
+
+  // UI state
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('start-spinner').style.display = 'inline-block';
+  document.getElementById('start-label').textContent = 'Procesando...';
+  document.getElementById('stop-btn').disabled = false;
+
+  // Switch to review view
+  showView('review');
+  clearLog();
+  renderAgentStatusGrid();
+  agents.forEach(a => updateAgentStatus(a.id, 'idle'));
+  setPhase(0);
+
+  addLog('🚀 Iniciando pipeline de revisión multiagente...', 'info');
+  addLog(`📄 Paper: "${state.paperTitle}"`, 'info');
+  addLog(`🔧 Modo: ${state.reviewMode} | Disciplina: ${state.discipline}`, 'info');
+
+  const results = {};
+  const disciplineLabels = { general: 'General', biomedical: 'Biomédica', cs: 'Informática/IA', physics: 'Física/Matemáticas', social: 'Ciencias Sociales', engineering: 'Ingeniería' };
+  const langLabels = { es: 'español', en: 'English' };
+
+  // Determine agents to run based on mode
+  let agentsToRun = [...agents];
+  if (state.reviewMode === 'quick') agentsToRun = agents.filter(a => ['reader','synthesizer','scorer'].includes(a.id));
+  if (state.reviewMode === 'technical') agentsToRun = agents.filter(a => ['reader','methodologist','critic','synthesizer','scorer'].includes(a.id));
+  if (state.reviewMode === 'editorial') agentsToRun = agents.filter(a => ['reader','editor','synthesizer','scorer'].includes(a.id));
+
+  const tStart = Date.now();
+
+  for (let i = 0; i < agentsToRun.length; i++) {
+    if (state.stopped) { addLog('⏹ Revisión detenida por el usuario.', 'err'); break; }
+    const agent = agentsToRun[i];
+    setPhase(agent.phase);
+    updateAgentStatus(agent.id, 'running');
+    addLog(`⟳ Ejecutando agente: ${agent.icon} ${agent.name}...`, 'run');
+
+    // Build context from previous results
+    const prevAnalysis = Object.entries(results).map(([k, v]) => `=== ${k.toUpperCase()} ===\n${v}`).join('\n\n');
+
+    // Fill prompt template
+    let prompt = agent.prompt
+      .replace(/\{\{paper_text\}\}/g, state.paperText.substring(0, 6000))
+      .replace(/\{\{paper_title\}\}/g, state.paperTitle)
+      .replace(/\{\{discipline\}\}/g, disciplineLabels[state.discipline] || state.discipline)
+      .replace(/\{\{lang\}\}/g, langLabels[state.reviewLang] || state.reviewLang)
+      .replace(/\{\{previous_analysis\}\}/g, prevAnalysis.substring(0, 4000))
+      .replace(/\{\{scores\}\}/g, JSON.stringify(results.scorer || {}));
+
+    try {
+      const resp = await callLLM(apiKey, prompt, state.model, state.temperature, state.maxTokens);
+      results[agent.id] = resp;
+      updateAgentStatus(agent.id, 'done');
+      addLog(`✓ ${agent.name} completado (${resp.length} chars)`, 'ok');
+    } catch (err) {
+      updateAgentStatus(agent.id, 'error');
+      addLog(`✗ Error en ${agent.name}: ${err.message}`, 'err');
+      results[agent.id] = `[Error: ${err.message}]`;
+    }
+
+    setPhase(agent.phase + 1);
+  }
+
+  const elapsed = ((Date.now() - tStart) / 1000).toFixed(0);
+  addLog(`✅ Pipeline completado en ${elapsed}s`, 'ok');
+  setPhase(5);
+
+  // Parse scorer result
+  let scores = null;
+  if (results.scorer) {
+    try {
+      const cleaned = results.scorer.replace(/```json|```/g, '').trim();
+      scores = JSON.parse(cleaned);
+    } catch (e) { addLog('⚠ No se pudieron parsear las puntuaciones JSON', 'info'); }
+  }
+
+  state.results = { raw: results, scores, elapsed };
+  document.getElementById('run-summary').textContent = `✅ Completado en ${elapsed}s · ${agentsToRun.length} agentes`;
+
+  // Update stats
+  state.stats.reviews += 1;
+  const tokenEst = Math.round(Object.values(results).join('').length / 4);
+  state.stats.tokens += tokenEst;
+  state.stats.cost += tokenEst * 0.00000015;
+  localStorage.setItem('autoreviewer_stats', JSON.stringify(state.stats));
+  updateStatsUI();
+
+  // Show scores
+  renderScoresView(results, scores);
+
+  // Reset buttons
+  state.running = false;
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('start-spinner').style.display = 'none';
+  document.getElementById('start-label').textContent = '▶ Iniciar revisión';
+  document.getElementById('stop-btn').disabled = true;
+
+  showNotice('🎉 Revisión completada', 'ok');
+}
+
+async function callLLM(apiKey, userPrompt, model, temperature, maxTokens) {
+  const isAnthropicModel = model.startsWith('claude');
+  
+  if (isAnthropicModel) {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+    if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || resp.statusText); }
+    const data = await resp.json();
+    return data.content.map(b => b.text || '').join('');
+  } else {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        temperature,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+    if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || resp.statusText); }
+    const data = await resp.json();
+    return data.choices[0].message.content;
+  }
+}
+
+function stopReview() {
+  state.stopped = true;
+  state.running = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('start-spinner').style.display = 'none';
+  document.getElementById('start-label').textContent = '▶ Iniciar revisión';
+  addLog('⏹ Deteniendo después del agente actual...', 'info');
+}
+
+// ═══════════════════════════════════════════════
+// RENDER SCORES VIEW
+// ═══════════════════════════════════════════════
+function renderScoresView(results, scores) {
+  document.getElementById('scores-placeholder').style.display = 'none';
+  document.getElementById('scores-content').style.display = 'block';
+
+  // Score cards
+  const grid = document.getElementById('scores-grid');
+  const scoreData = scores || {};
+  const metrics = [
+    { key: 'methodology', label: 'Metodología', icon: '🔬' },
+    { key: 'content', label: 'Contenido', icon: '🧠' },
+    { key: 'editorial', label: 'Editorial', icon: '✍️' },
+    { key: 'ethics', label: 'Ética', icon: '⚖️' },
+    { key: 'overall', label: 'GLOBAL', icon: '⭐' }
+  ];
+  grid.innerHTML = '';
+  metrics.forEach(m => {
+    const val = scoreData[m.key];
+    const pct = val ? (val / 10 * 100) : 0;
+    const cls = val >= 7 ? 'score-high' : val >= 5 ? 'score-mid' : 'score-low';
+    const barColor = val >= 7 ? 'var(--accent3)' : val >= 5 ? 'var(--warn)' : 'var(--danger)';
+    grid.innerHTML += `<div class="score-card">
+      <div class="score-val ${cls}">${val != null ? val.toFixed(1) : '—'}</div>
+      <div class="score-label">${m.icon} ${m.label}</div>
+      <div class="score-bar"><div class="score-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+    </div>`;
+  });
+
+  // Recommendation badge
+  if (scoreData.recommendation) {
+    const recColors = { 'Accept': 'badge-green', 'Minor Revision': 'badge-accent', 'Major Revision': 'badge-warn', 'Reject': '' };
+    const cls = recColors[scoreData.recommendation] || 'badge-purple';
+    grid.innerHTML += `<div class="score-card" style="grid-column:span 1">
+      <div style="font-size:20px;margin-bottom:6px">📋</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text)"><span class="badge ${cls}" style="font-size:12px;padding:4px 12px">${scoreData.recommendation || 'N/A'}</span></div>
+      <div class="score-label">Recomendación</div>
+    </div>`;
+  }
+
+  // Feedback items
+  const feedbackList = document.getElementById('feedback-list');
+  feedbackList.innerHTML = '';
+  if (scoreData.feedback_items && scoreData.feedback_items.length) {
+    scoreData.feedback_items.forEach(item => {
+      const typeClass = { strength: 'fi-strength', weakness: 'fi-weakness', suggestion: 'fi-suggestion', question: 'fi-question' }[item.type] || 'fi-suggestion';
+      const typeLabel = { strength: '✅ Fortaleza', weakness: '⚠ Debilidad', suggestion: '💡 Sugerencia', question: '❓ Pregunta' }[item.type] || item.type;
+      feedbackList.innerHTML += `<div class="feedback-item">
+        <div class="fi-header">
+          <span class="fi-type ${typeClass}">${typeLabel}</span>
+          <span class="fi-section">${item.section || ''}</span>
+        </div>
+        <div class="fi-text">${escapeHtml(item.text)}</div>
+      </div>`;
+    });
+  } else {
+    feedbackList.innerHTML = '<div class="placeholder"><span class="ico">💬</span>No se pudieron extraer items de feedback estructurado.</div>';
+  }
+
+  // Summary (synthesizer output)
+  const summaryEl = document.getElementById('summary-output');
+  const synthResult = results.synthesizer || results.reader || '';
+  summaryEl.innerHTML = markdownToHtml(synthResult || '<em>Sin resumen disponible.</em>');
+
+  // Raw (all results)
+  const rawEl = document.getElementById('raw-output');
+  const rawText = Object.entries(results).map(([k, v]) => `# ${k.toUpperCase()}\n\n${v}`).join('\n\n---\n\n');
+  rawEl.innerHTML = markdownToHtml(rawText);
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+function switchRTab(btn, tabId) {
+  document.querySelectorAll('.rtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.rtab-content').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function markdownToHtml(md) {
+  if (!md) return '';
+  return md
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+    .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^(?!<[hbuol])/gm, '')
+    .replace(/\n/g, '<br>');
+}
+
+function copyReview() {
+  if (!state.results) return;
+  const text = Object.entries(state.results.raw).map(([k, v]) => `=== ${k.toUpperCase()} ===\n${v}`).join('\n\n');
+  navigator.clipboard.writeText(text).then(() => showNotice('📋 Copiado al portapapeles', 'ok'));
+}
+
+function downloadReview() {
+  if (!state.results) return;
+  const text = Object.entries(state.results.raw).map(([k, v]) => `=== ${k.toUpperCase()} ===\n${v}`).join('\n\n---\n\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `autoreviewer_${state.paperTitle.replace(/\s+/g,'_').substring(0,30)}.txt`;
+  a.click();
+}
+
+function resetAll() {
+  document.getElementById('paper-text').value = '';
+  document.getElementById('paper-title').value = '';
+  document.getElementById('paper-info').style.display = 'none';
+  state.results = null;
+}
+
+function showNotice(msg, type = 'info') {
+  const typeClass = { ok: 'notice-ok', info: 'notice-info', warn: 'notice-warn', err: 'notice-err' }[type] || 'notice-info';
+  const div = document.createElement('div');
+  div.className = `notice ${typeClass}`;
+  div.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:999;max-width:320px;animation:slideIn .2s ease';
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 3000);
+}
+
+function updateStatsUI() {
+  document.getElementById('stat-reviews').textContent = state.stats.reviews;
+  document.getElementById('stat-tokens').textContent = state.stats.tokens.toLocaleString();
+  document.getElementById('stat-cost').textContent = '$' + state.stats.cost.toFixed(4);
+}
+
+function clearStats() {
+  state.stats = { reviews: 0, tokens: 0, cost: 0 };
+  localStorage.removeItem('autoreviewer_stats');
+  updateStatsUI();
+}
+
+// CSS animation for notices
+const style = document.createElement('style');
+style.textContent = `@keyframes slideIn { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>
