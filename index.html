@@ -5,274 +5,325 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>AutoReviewer — Revisión Científica con IA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&family=Inter:wght@400;500&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
 <style>
 :root{
-  --bg:#0a0c0f;
-  --bg2:#0f1117;
-  --bg3:#151821;
-  --bg4:#1c2030;
-  --border:#232840;
-  --border2:#2e3554;
-  --accent:#4f8ef7;
-  --accent2:#7c5cfc;
-  --accent3:#36c984;
-  --warn:#f5a623;
-  --danger:#f25c5c;
-  --text:#e8eaf2;
-  --text2:#9aa3c2;
-  --text3:#5c6488;
-  --glow:rgba(79,142,247,0.18);
-  --glow2:rgba(124,92,252,0.15);
-  --radius:10px;
-  --radius2:6px;
+  --bg:#f4f5f7;--bg2:#ffffff;--bg3:#f0f1f4;--bg4:#e6e8ef;
+  --border:#dde0ea;--border2:#c8ccd9;
+  --accent:#2563eb;--accent2:#7c3aed;--accent3:#059669;
+  --warn:#d97706;--danger:#dc2626;
+  --text:#1a1d2e;--text2:#4b5272;--text3:#6b7280;
+  --glow:rgba(37,99,235,.14);--radius:10px;--radius2:6px;
+  --font-body:'Inter',system-ui,sans-serif;
+}
+body.dark{
+  --bg:#0a0c0f;--bg2:#0f1117;--bg3:#151821;--bg4:#1c2030;
+  --border:#232840;--border2:#2e3554;
+  --accent:#4f8ef7;--accent2:#7c5cfc;--accent3:#36c984;
+  --warn:#f5a623;--danger:#f25c5c;
+  --text:#e8eaf2;--text2:#9aa3c2;--text3:#8b96b0;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:14px;min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.12}
+body.dark::before{opacity:.35}
 
-/* Noise texture overlay */
-body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+/* PROGRESS BAR */
+#progress-bar{position:fixed;top:0;left:0;height:3px;background:var(--accent);z-index:999;width:0;transition:width .3s ease;border-radius:0 2px 2px 0}
+#progress-bar.done{background:var(--accent3)}
+#progress-bar.error{background:var(--danger)}
 
 /* SIDEBAR */
-#sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:var(--bg2);border-right:1px solid var(--border);z-index:100;display:flex;flex-direction:column;padding:0}
+#sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:var(--bg2);border-right:1px solid var(--border);z-index:100;display:flex;flex-direction:column}
 .sb-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
 .sb-logo .logo-icon{font-size:22px;margin-bottom:6px}
 .sb-logo h1{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--text);letter-spacing:-.3px}
 .sb-logo span{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
 .sb-section{padding:12px 8px 4px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;font-weight:500}
-.sb-item{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:var(--radius2);margin:1px 8px;cursor:pointer;color:var(--text2);font-size:13px;transition:all .15s;border:1px solid transparent}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:var(--radius2);margin:1px 8px;cursor:pointer;color:var(--text2);font-size:13px;transition:all .15s;border:1px solid transparent;position:relative}
 .sb-item:hover{background:var(--bg3);color:var(--text);border-color:var(--border)}
 .sb-item.active{background:var(--bg4);color:var(--accent);border-color:var(--border2)}
+.sb-item.disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
 .sb-item .ico{width:18px;text-align:center;font-size:14px}
+.sb-item[title]:hover::after{content:attr(title);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);background:var(--bg4);border:1px solid var(--border2);color:var(--text);font-size:12px;padding:4px 8px;border-radius:var(--radius2);white-space:nowrap;z-index:200;pointer-events:none}
 .sb-bottom{margin-top:auto;padding:12px 8px;border-top:1px solid var(--border)}
-.api-status{padding:10px 14px;border-radius:var(--radius2);background:var(--bg3);border:1px solid var(--border);cursor:pointer;font-size:12px}
+.api-status{padding:10px 14px;border-radius:var(--radius2);background:var(--bg3);border:1px solid var(--border);cursor:pointer;font-size:12px;margin-bottom:8px}
 .api-status .label{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:1px}
 .api-status .val{color:var(--text2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
-.dot.on{background:var(--accent3)}
-.dot.off{background:var(--text3)}
+.dot.on{background:var(--accent3)}.dot.off{background:var(--text3)}
+.theme-toggle{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:var(--radius2);cursor:pointer;color:var(--text2);font-size:13px;background:none;border:1px solid transparent;font-family:var(--font-body);width:100%;transition:all .15s}
+.theme-toggle:hover{background:var(--bg3);color:var(--text);border-color:var(--border)}
+.toggle-pill{width:32px;height:18px;border-radius:9px;background:var(--border2);position:relative;transition:background .2s;flex-shrink:0}
+.toggle-pill::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .2s}
+body.dark .toggle-pill{background:var(--accent)}
+body.dark .toggle-pill::after{transform:translateX(14px)}
 
-/* MAIN CONTENT */
+/* MAIN */
 #main{margin-left:240px;min-height:100vh;position:relative;z-index:1}
 .view{display:none;padding:32px 40px;max-width:900px}
 .view.active{display:block}
 
-/* HEADER */
-.page-header{margin-bottom:32px}
-.page-header h2{font-family:'Fraunces',serif;font-size:28px;font-weight:600;color:var(--text);margin-bottom:6px}
-.page-header p{color:var(--text2);font-size:13px;line-height:1.6}
+/* HEADERS */
+.page-header{margin-bottom:28px}
+.page-header h2{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:var(--text);margin-bottom:6px}
+.page-header p{color:var(--text2);font-size:13px;line-height:1.6;font-family:var(--font-body)}
 
 /* CARDS */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
-.card-title{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin-bottom:14px;display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace}
 .card-title::after{content:'';flex:1;height:1px;background:var(--border)}
 
-/* FORM ELEMENTS */
-label{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-input[type=text],input[type=password],textarea,select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius2);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:10px 12px;outline:none;transition:border-color .15s}
+/* FORM */
+label{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:'DM Mono',monospace}
+input[type=text],input[type=password],textarea,select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius2);color:var(--text);font-family:var(--font-body);font-size:13px;padding:10px 12px;outline:none;transition:border-color .15s}
 input[type=text]:focus,input[type=password]:focus,textarea:focus,select:focus{border-color:var(--accent)}
-textarea{resize:vertical;min-height:80px;line-height:1.5}
+textarea{resize:vertical;min-height:80px;line-height:1.6;font-family:var(--font-body)}
 select option{background:var(--bg3)}
 .input-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .input-group{position:relative}
 .input-group .eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text3);font-size:14px;background:none;border:none;outline:none}
 
+/* API KEY BANNER */
+#api-key-banner{background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:var(--radius2);padding:12px 16px;margin-bottom:16px;display:none;align-items:center;gap:12px;font-size:13px;font-family:var(--font-body)}
+#api-key-banner.visible{display:flex}
+#api-key-banner .banner-text{flex:1;color:var(--danger)}
+#api-key-banner .banner-quick{display:flex;gap:8px;align-items:center;flex-shrink:0}
+#api-key-banner input[type=password]{width:200px;padding:6px 10px;font-size:12px;font-family:'DM Mono',monospace}
+
+/* MODEL BADGE */
+#model-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;margin-bottom:12px}
+#model-badge .dot{margin-right:0}
+
+/* CONFIRM MODAL */
+#confirm-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#confirm-modal.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:28px;width:480px;max-width:95vw}
+.modal h3{font-family:'Fraunces',serif;font-size:20px;margin-bottom:6px;color:var(--text)}
+.modal .modal-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+.modal-meta-item{background:var(--bg3);border-radius:var(--radius2);padding:10px 14px;font-size:12px}
+.modal-meta-item .mmi-val{font-size:18px;font-weight:600;color:var(--accent);font-family:'Fraunces',serif;display:block}
+.modal-meta-item .mmi-label{color:var(--text3);font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.modal-check{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);margin-top:10px;font-family:var(--font-body)}
+.modal-check input{width:auto}
+
 /* BUTTONS */
-.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius2);border:none;font-family:'DM Mono',monospace;font-size:13px;cursor:pointer;transition:all .15s;font-weight:500}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius2);border:none;font-family:var(--font-body);font-size:13px;cursor:pointer;transition:all .15s;font-weight:500}
 .btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:#3a7de8;box-shadow:0 0 20px var(--glow)}
+.btn-primary:hover{background:#1d4ed8;box-shadow:0 0 20px var(--glow)}
 .btn-secondary{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
 .btn-secondary:hover{background:var(--bg4);color:var(--text);border-color:var(--accent)}
-.btn-danger{background:rgba(242,92,92,.12);color:var(--danger);border:1px solid rgba(242,92,92,.25)}
-.btn-danger:hover{background:rgba(242,92,92,.2)}
-.btn-success{background:rgba(54,201,132,.12);color:var(--accent3);border:1px solid rgba(54,201,132,.25)}
-.btn-success:hover{background:rgba(54,201,132,.2)}
+.btn-danger{background:rgba(220,38,38,.08);color:var(--danger);border:1px solid rgba(220,38,38,.2)}
+.btn-danger:hover{background:rgba(220,38,38,.15)}
+.btn-success{background:rgba(5,150,105,.08);color:var(--accent3);border:1px solid rgba(5,150,105,.2)}
+.btn-success:hover{background:rgba(5,150,105,.15)}
 .btn-sm{padding:6px 12px;font-size:12px}
 .btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.btn-row.right{justify-content:flex-end}
 
-/* UPLOAD ZONE */
-#upload-zone{border:2px dashed var(--border2);border-radius:var(--radius);padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--bg3)}
-#upload-zone:hover,#upload-zone.dragover{border-color:var(--accent);background:rgba(79,142,247,.05)}
-#upload-zone .icon{font-size:36px;margin-bottom:12px;opacity:.6}
-#upload-zone h3{font-family:'Fraunces',serif;font-size:16px;color:var(--text);margin-bottom:6px}
+/* UPLOAD */
+#upload-zone{border:2px dashed var(--border2);border-radius:var(--radius);padding:36px 20px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--bg3)}
+#upload-zone:hover,#upload-zone.dragover{border-color:var(--accent);background:rgba(37,99,235,.04)}
+#upload-zone .icon{font-size:34px;margin-bottom:10px;opacity:.5}
+#upload-zone h3{font-family:'Fraunces',serif;font-size:16px;color:var(--text);margin-bottom:5px}
 #upload-zone p{color:var(--text3);font-size:12px}
-#upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
-#paper-info{display:none;padding:14px;background:rgba(54,201,132,.07);border:1px solid rgba(54,201,132,.2);border-radius:var(--radius2);margin-top:12px}
-#paper-info .file-name{color:var(--accent3);font-size:13px;font-weight:500}
-#paper-info .file-size{color:var(--text3);font-size:11px;margin-top:2px}
+#paper-info{display:none;padding:12px 14px;background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.18);border-radius:var(--radius2);margin-top:12px;display:none}
+#paper-info.visible{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#paper-info .file-name{color:var(--accent3);font-size:13px;font-weight:500;font-family:'DM Mono',monospace}
+#paper-info .file-size{color:var(--text3);font-size:11px;font-family:'DM Mono',monospace}
+#paper-text-wrap{position:relative}
+#paper-text-wrap .text-lock{position:absolute;top:8px;right:8px;font-size:11px;color:var(--text3);cursor:pointer;background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius2);padding:3px 8px;font-family:'DM Mono',monospace;z-index:2}
+#paper-text-wrap .char-count{position:absolute;bottom:8px;right:12px;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;pointer-events:none}
+#paper-text[readonly]{background:var(--bg4);cursor:not-allowed;opacity:.85}
 
-/* AGENT PIPELINE */
+/* PIPELINE */
+.phase-steps{display:flex;gap:0;margin-bottom:14px}
+.phase-step{flex:1;padding:10px 6px;text-align:center;background:var(--bg3);border:1px solid var(--border);font-size:11px;color:var(--text3);transition:all .2s;font-family:'DM Mono',monospace}
+.phase-step:first-child{border-radius:var(--radius2) 0 0 var(--radius2)}
+.phase-step:last-child{border-radius:0 var(--radius2) var(--radius2) 0}
+.phase-step+.phase-step{border-left:none}
+.phase-step.active{background:rgba(37,99,235,.1);color:var(--accent);border-color:var(--accent)}
+.phase-step.done{background:rgba(5,150,105,.07);color:var(--accent3);border-color:rgba(5,150,105,.25)}
+.phase-step .phase-num{display:block;font-size:15px;margin-bottom:3px}
+.log-area{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 14px;max-height:200px;overflow-y:auto;font-size:11px;line-height:1.9;font-family:'Space Mono',monospace}
+.log-line{color:var(--text3)}.log-ok{color:var(--accent3)}.log-run{color:var(--accent)}.log-err{color:var(--danger)}.log-info{color:var(--warn)}
+
+/* ERROR SUMMARY */
+#error-summary{display:none;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:var(--radius2);padding:14px 16px;margin-top:14px}
+#error-summary.visible{display:block}
+#error-summary h4{color:var(--danger);font-size:12px;margin-bottom:8px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.5px}
+#error-list{font-size:12px;color:var(--text2);line-height:2;font-family:var(--font-body)}
+
+/* AGENTS */
 .agent-grid{display:grid;gap:10px}
 .agent-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
 .agent-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border2)}
 .agent-card.running::before{background:var(--accent);box-shadow:0 0 12px var(--glow)}
 .agent-card.done::before{background:var(--accent3)}
 .agent-card.error::before{background:var(--danger)}
-.agent-card.editing{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}
-.agent-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.agent-name{font-size:13px;font-weight:500;color:var(--text)}
-.agent-role{font-size:11px;color:var(--text3)}
-.agent-status{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg4)}
-.agent-status.idle{color:var(--text3)}
-.agent-status.running{color:var(--accent);animation:pulse 1.5s infinite}
-.agent-status.done{color:var(--accent3)}
-.agent-status.error{color:var(--danger)}
+.agent-card.editing{border-color:var(--accent2)}
+.agent-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.agent-name{font-size:13px;font-weight:500;color:var(--text);font-family:var(--font-body)}
+.agent-name-es{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:2px}
+.agent-role{font-size:11px;color:var(--text3);font-family:var(--font-body)}
+.agent-status{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg4);font-family:'DM Mono',monospace}
+.agent-status.idle{color:var(--text3)}.agent-status.running{color:var(--accent);animation:pulse 1.4s infinite}.agent-status.done{color:var(--accent3)}.agent-status.error{color:var(--danger)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.agent-desc{font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:10px}
+.agent-desc{font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px;font-family:var(--font-body)}
 .prompt-editor{display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
 .prompt-editor.open{display:block}
 .prompt-editor textarea{font-size:12px;min-height:120px;font-family:'DM Mono',monospace;line-height:1.6}
-.prompt-editor .vars{margin-top:6px;font-size:10px;color:var(--text3)}
-.prompt-editor .vars code{background:var(--bg4);padding:1px 5px;border-radius:3px;color:var(--accent2);font-size:10px}
-.edit-toggle{font-size:10px;color:var(--text3);cursor:pointer;padding:3px 8px;border-radius:4px;background:var(--bg4);border:none;font-family:'DM Mono',monospace;transition:all .15s}
-.edit-toggle:hover{color:var(--accent2);background:rgba(124,92,252,.1)}
-
-/* PROGRESS */
-.pipeline-progress{margin-bottom:20px}
-.phase-steps{display:flex;gap:0;margin-bottom:16px}
-.phase-step{flex:1;padding:10px 6px;text-align:center;background:var(--bg3);border:1px solid var(--border);font-size:11px;color:var(--text3);position:relative;transition:all .2s}
-.phase-step:first-child{border-radius:var(--radius2) 0 0 var(--radius2)}
-.phase-step:last-child{border-radius:0 var(--radius2) var(--radius2) 0}
-.phase-step+.phase-step{border-left:none}
-.phase-step.active{background:rgba(79,142,247,.12);color:var(--accent);border-color:var(--accent)}
-.phase-step.done{background:rgba(54,201,132,.08);color:var(--accent3);border-color:rgba(54,201,132,.3)}
-.phase-step .phase-num{display:block;font-size:16px;margin-bottom:3px}
-.log-area{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 14px;max-height:200px;overflow-y:auto;font-size:11px;line-height:1.8;font-family:'Space Mono',monospace}
-.log-area .log-line{color:var(--text3)}
-.log-area .log-ok{color:var(--accent3)}
-.log-area .log-run{color:var(--accent)}
-.log-area .log-err{color:var(--danger)}
-.log-area .log-info{color:var(--warn)}
+.prompt-editor .vars{margin-top:6px;font-size:10px;color:var(--text3);font-family:var(--font-body)}
+.prompt-editor .vars code{background:var(--bg4);padding:1px 5px;border-radius:3px;color:var(--accent2);font-size:10px;font-family:'DM Mono',monospace}
+.edit-toggle{font-size:11px;color:var(--text3);cursor:pointer;padding:3px 8px;border-radius:4px;background:var(--bg4);border:1px solid var(--border);font-family:var(--font-body);transition:all .15s}
+.edit-toggle:hover{color:var(--accent2);background:rgba(124,58,237,.08);border-color:var(--accent2)}
 
 /* REVIEW OUTPUT */
-.review-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0}
-.rtab{padding:8px 16px;font-size:12px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Mono',monospace}
-.rtab:hover{color:var(--text)}
-.rtab.active{color:var(--accent);border-bottom-color:var(--accent)}
-.rtab-content{display:none}
-.rtab-content.active{display:block}
-.review-output{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius2);padding:24px 28px;line-height:1.9;color:var(--text);min-height:300px;font-family:'Fraunces',serif;font-size:15px}
+.review-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border)}
+.rtab{padding:8px 16px;font-size:12px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--font-body)}
+.rtab:hover{color:var(--text)}.rtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.rtab-content{display:none}.rtab-content.active{display:block}
+/* Review raw output: use Inter body font for readability */
+.review-output{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius2);padding:24px 28px;line-height:1.85;color:var(--text);min-height:300px;font-family:var(--font-body);font-size:14px}
 .review-output h1,.review-output h2,.review-output h3{font-family:'Fraunces',serif;color:var(--text);margin:20px 0 10px}
-.review-output h1{font-size:22px;border-bottom:1px solid var(--border);padding-bottom:10px}
-.review-output h2{font-size:18px;color:var(--accent)}
+.review-output h1{font-size:20px;border-bottom:1px solid var(--border);padding-bottom:10px}
+.review-output h2{font-size:17px;color:var(--accent)}
 .review-output h3{font-size:15px;color:var(--text2)}
-.review-output p{margin-bottom:14px}
-.review-output ul,ol{padding-left:20px;margin-bottom:14px}
-.review-output li{margin-bottom:6px}
+.review-output p{margin-bottom:12px}.review-output ul,.review-output ol{padding-left:20px;margin-bottom:12px}
+.review-output li{margin-bottom:5px}
 .review-output code{background:var(--bg3);padding:1px 6px;border-radius:3px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2)}
-.review-output blockquote{border-left:3px solid var(--accent);padding-left:16px;color:var(--text2);margin:14px 0;font-style:italic}
-.review-output strong{color:var(--accent3)}
-.placeholder{color:var(--text3);text-align:center;padding:60px 20px;font-family:'DM Mono',monospace;font-size:13px}
-.placeholder .ico{font-size:40px;margin-bottom:12px;opacity:.3;display:block}
+.review-output blockquote{border-left:3px solid var(--accent);padding-left:16px;color:var(--text2);margin:12px 0;font-style:italic}
+.review-output strong{color:var(--text);font-weight:600}
+/* Agent sections in raw view */
+.agent-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);margin-bottom:14px;overflow:hidden}
+.agent-section-header{padding:10px 16px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.agent-section-header h4{font-size:12px;font-family:'DM Mono',monospace;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.agent-section-header .toggle-ico{font-size:11px;color:var(--text3);transition:transform .15s}
+.agent-section-header.open .toggle-ico{transform:rotate(180deg)}
+.agent-section-body{padding:16px 20px;font-family:var(--font-body);font-size:13px;line-height:1.8;color:var(--text2);display:none}
+.agent-section-body.open{display:block}
 
 /* SCORES */
 .scores-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
 .score-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:14px;text-align:center}
 .score-val{font-family:'Fraunces',serif;font-size:28px;font-weight:600;line-height:1}
-.score-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
-.score-high{color:var(--accent3)}
-.score-mid{color:var(--warn)}
-.score-low{color:var(--danger)}
+.score-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px;font-family:'DM Mono',monospace}
+.score-high{color:var(--accent3)}.score-mid{color:var(--warn)}.score-low{color:var(--danger)}
 .score-bar{height:4px;border-radius:2px;background:var(--border);margin-top:8px;overflow:hidden}
 .score-bar-fill{height:100%;border-radius:2px;transition:width .5s ease}
 
-/* SETTINGS */
-.settings-table{width:100%;border-collapse:collapse}
-.settings-table th{text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:8px 12px;border-bottom:1px solid var(--border)}
-.settings-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
-.settings-table tr:last-child td{border-bottom:none}
-.settings-table input[type=text]{padding:6px 10px;font-size:12px}
-.settings-table select{padding:6px 10px;font-size:12px}
-.token-input{width:80px}
-
-/* NOTICE / ALERTS */
-.notice{padding:10px 14px;border-radius:var(--radius2);font-size:12px;line-height:1.5;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
-.notice-info{background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);color:var(--text2)}
-.notice-warn{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);color:var(--warn)}
-.notice-ok{background:rgba(54,201,132,.08);border:1px solid rgba(54,201,132,.2);color:var(--accent3)}
-.notice-err{background:rgba(242,92,92,.08);border:1px solid rgba(242,92,92,.2);color:var(--danger)}
-
-/* BUTTONS ROW */
-.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
-.btn-row.right{justify-content:flex-end}
-
-/* SPINNER */
-.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(79,142,247,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* BADGE */
-.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500}
-.badge-accent{background:rgba(79,142,247,.15);color:var(--accent)}
-.badge-green{background:rgba(54,201,132,.15);color:var(--accent3)}
-.badge-purple{background:rgba(124,92,252,.15);color:var(--accent2)}
-.badge-warn{background:rgba(245,166,35,.15);color:var(--warn)}
-
-/* MODAL */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-.modal-overlay.open{display:flex}
-.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px;width:540px;max-width:95vw;max-height:85vh;overflow-y:auto}
-.modal h3{font-family:'Fraunces',serif;font-size:18px;margin-bottom:6px;color:var(--text)}
-.modal p{color:var(--text2);font-size:13px;margin-bottom:16px}
-
-/* FEEDBACK ITEMS */
-.feedback-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:14px;margin-bottom:10px}
+/* FEEDBACK */
+.feedback-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:14px;margin-bottom:10px;font-family:var(--font-body)}
 .feedback-item .fi-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.feedback-item .fi-type{font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:2px 8px;border-radius:20px}
-.fi-strength{background:rgba(54,201,132,.15);color:var(--accent3)}
-.fi-weakness{background:rgba(242,92,92,.15);color:var(--danger)}
-.fi-suggestion{background:rgba(79,142,247,.15);color:var(--accent)}
-.fi-question{background:rgba(124,92,252,.15);color:var(--accent2)}
+.feedback-item .fi-type{font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:2px 8px;border-radius:20px;font-family:'DM Mono',monospace}
+.fi-strength{background:rgba(5,150,105,.12);color:var(--accent3)}
+.fi-weakness{background:rgba(220,38,38,.1);color:var(--danger)}
+.fi-suggestion{background:rgba(37,99,235,.1);color:var(--accent)}
+.fi-question{background:rgba(124,58,237,.1);color:var(--accent2)}
 .feedback-item .fi-text{font-size:13px;color:var(--text2);line-height:1.6}
-.feedback-item .fi-section{font-size:11px;color:var(--text3);margin-top:6px}
+.feedback-item .fi-section{font-size:11px;color:var(--text3)}
 
-/* TOOLTIP */
+/* HISTORY */
+.history-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;transition:all .15s;font-family:var(--font-body)}
+.history-item:hover{background:var(--bg4);border-color:var(--border2)}
+.history-score{font-family:'Fraunces',serif;font-size:22px;font-weight:600;width:44px;text-align:center;flex-shrink:0}
+.history-info{flex:1}
+.history-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px}
+.history-meta{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+.history-rec{font-size:11px;padding:2px 8px;border-radius:20px;flex-shrink:0}
+
+/* NOTICES */
+.notice{padding:10px 14px;border-radius:var(--radius2);font-size:12px;line-height:1.5;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start;font-family:var(--font-body)}
+.notice-info{background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.18);color:var(--text2)}
+.notice-warn{background:rgba(217,119,6,.07);border:1px solid rgba(217,119,6,.2);color:var(--warn)}
+.notice-ok{background:rgba(5,150,105,.07);border:1px solid rgba(5,150,105,.18);color:var(--accent3)}
+.notice-err{background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.2);color:var(--danger)}
+
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;font-family:'DM Mono',monospace}
+.badge-accent{background:rgba(37,99,235,.12);color:var(--accent)}
+.badge-green{background:rgba(5,150,105,.12);color:var(--accent3)}
+.badge-purple{background:rgba(124,58,237,.12);color:var(--accent2)}
+.badge-warn{background:rgba(217,119,6,.12);color:var(--warn)}
+
+/* MISC */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(37,99,235,.25);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.placeholder{color:var(--text3);text-align:center;padding:60px 20px;font-family:var(--font-body);font-size:13px}
+.placeholder .ico{font-size:40px;margin-bottom:12px;opacity:.3;display:block}
+.placeholder a{color:var(--accent);text-decoration:none}
+.placeholder a:hover{text-decoration:underline}
 .tip{position:relative;display:inline-block;cursor:help;color:var(--text3);font-size:11px;vertical-align:middle}
-.tip::after{content:attr(data-tip);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);color:var(--text2);padding:6px 10px;border-radius:var(--radius2);font-size:11px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;max-width:240px;white-space:normal;z-index:200;font-family:'DM Mono',monospace}
+.tip::after{content:attr(data-tip);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);color:var(--text2);padding:6px 10px;border-radius:var(--radius2);font-size:11px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;max-width:240px;z-index:200;font-family:var(--font-body)}
 .tip:hover::after{opacity:1}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 
-/* SCROLLBAR */
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-
-/* RESPONSIVE */
 @media(max-width:800px){
-  #sidebar{width:60px}
-  .sb-logo h1,.sb-logo span,.sb-item span,.sb-section,.api-status .val,.api-status .label{display:none}
-  #main{margin-left:60px}
-  .view{padding:20px 16px}
-  .scores-grid{grid-template-columns:1fr 1fr}
-  .input-row{grid-template-columns:1fr}
+  #sidebar{width:58px}
+  .sb-logo h1,.sb-logo span,.sb-item span,.sb-section,.api-status .val,.api-status .label,#theme-lbl{display:none}
+  #main{margin-left:58px}.view{padding:20px 16px}
+  .scores-grid{grid-template-columns:1fr 1fr}.input-row{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
+
+<!-- GLOBAL PROGRESS BAR -->
+<div id="progress-bar"></div>
+
+<!-- CONFIRM MODAL -->
+<div id="confirm-modal">
+  <div class="modal">
+    <h3>🚀 Confirmar revisión</h3>
+    <p style="color:var(--text2);font-size:13px;font-family:var(--font-body);margin-top:6px">Revisa los parámetros antes de consumir créditos de API.</p>
+    <div class="modal-meta" id="modal-meta"></div>
+    <div class="modal-check">
+      <input type="checkbox" id="skip-confirm">
+      <label style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--text2)">No volver a mostrar</label>
+    </div>
+    <div class="btn-row" style="margin-top:18px">
+      <button class="btn btn-secondary" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmAndRun()">▶ Iniciar revisión</button>
+    </div>
+  </div>
+</div>
 
 <!-- SIDEBAR -->
 <nav id="sidebar">
   <div class="sb-logo">
     <div class="logo-icon">🔬</div>
     <h1>AutoReviewer</h1>
-    <span>Multi-agent · v1.0</span>
+    <span>Multi-agent · v1.1</span>
   </div>
 
   <div class="sb-section">Principal</div>
-  <div class="sb-item active" onclick="showView('upload')" id="nav-upload">
+  <div class="sb-item active" onclick="showView('upload')" id="nav-upload" title="Subir paper">
     <span class="ico">📄</span><span>Subir paper</span>
   </div>
-  <div class="sb-item" onclick="showView('review')" id="nav-review">
+  <div class="sb-item disabled" onclick="showView('review')" id="nav-review" title="Revisión en curso">
     <span class="ico">✨</span><span>Revisión</span>
   </div>
-  <div class="sb-item" onclick="showView('scores')" id="nav-scores">
+  <div class="sb-item disabled" onclick="showView('scores')" id="nav-scores" title="Puntuaciones">
     <span class="ico">📊</span><span>Puntuaciones</span>
+  </div>
+  <div class="sb-item disabled" onclick="showView('history')" id="nav-history" title="Historial">
+    <span class="ico">🕓</span><span>Historial</span>
   </div>
 
   <div class="sb-section">Configuración</div>
-  <div class="sb-item" onclick="showView('agents')" id="nav-agents">
+  <div class="sb-item" onclick="showView('agents')" id="nav-agents" title="Agentes y prompts">
     <span class="ico">🤖</span><span>Agentes &amp; Prompts</span>
   </div>
-  <div class="sb-item" onclick="showView('settings')" id="nav-settings">
+  <div class="sb-item" onclick="showView('settings')" id="nav-settings" title="Ajustes">
     <span class="ico">⚙️</span><span>Ajustes</span>
   </div>
 
@@ -281,6 +332,13 @@ select option{background:var(--bg3)}
       <div class="label"><span class="dot" id="api-dot">●</span> API Key</div>
       <div class="val" id="api-val-display">No configurada</div>
     </div>
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:14px" id="theme-ico">☀️</span>
+        <span id="theme-lbl">Tema claro</span>
+      </div>
+      <div class="toggle-pill"></div>
+    </button>
   </div>
 </nav>
 
@@ -291,12 +349,24 @@ select option{background:var(--bg3)}
 <div class="view active" id="view-upload">
   <div class="page-header">
     <h2>🔬 Revisar artículo</h2>
-    <p>Sube un paper en PDF o pega el texto/abstract para obtener una revisión científica detallada generada por múltiples agentes IA.</p>
+    <p>Sube un paper en PDF o pega el texto para obtener una revisión científica detallada con múltiples agentes IA.</p>
   </div>
+
+  <!-- API key banner (shown when key not configured) -->
+  <div id="api-key-banner">
+    <span class="banner-text">⚠ API key no configurada. Añádela aquí para poder iniciar la revisión.</span>
+    <div class="banner-quick">
+      <input type="password" id="banner-key-input" placeholder="sk-...">
+      <button class="btn btn-primary btn-sm" onclick="saveBannerKey()">Guardar</button>
+    </div>
+  </div>
+
+  <!-- Active model badge -->
+  <div id="model-badge"><span class="dot on"></span><span id="model-badge-text">gpt-4o-mini · temp 0.3</span></div>
 
   <div class="card">
     <div class="card-title">📄 Documento a revisar</div>
-    <div id="upload-zone" onclick="document.getElementById('file-input').click()">
+    <div id="upload-zone">
       <input type="file" id="file-input" accept=".pdf,.txt" style="display:none" onchange="handleFileUpload(this)">
       <div class="icon">📁</div>
       <h3>Arrastra tu PDF aquí</h3>
@@ -307,15 +377,17 @@ select option{background:var(--bg3)}
       <div class="file-size" id="file-size-disp">—</div>
     </div>
 
-    <div style="text-align:center;margin:16px 0;color:var(--text3);font-size:12px">— o pega el texto directamente —</div>
+    <div style="text-align:center;margin:14px 0;color:var(--text3);font-size:12px;font-family:'DM Mono',monospace">— o pega el texto directamente —</div>
 
     <div style="margin-bottom:12px">
       <label>Título del artículo (opcional)</label>
       <input type="text" id="paper-title" placeholder="Ej: Attention is All You Need">
     </div>
-    <div>
-      <label>Texto / Abstract del paper <span style="color:var(--text3)">(puedes pegar todo el artículo)</span></label>
+    <div id="paper-text-wrap">
+      <label>Texto del paper <span style="color:var(--text3);font-family:var(--font-body);text-transform:none;letter-spacing:0">(puedes pegar el artículo completo)</span></label>
+      <button class="text-lock" id="text-lock-btn" onclick="toggleTextLock()" style="display:none" title="Desbloquear edición">🔒 Solo lectura</button>
       <textarea id="paper-text" rows="8" placeholder="Pega aquí el texto del paper, el abstract, o cualquier sección que quieras revisar..."></textarea>
+      <span class="char-count" id="char-count"></span>
     </div>
   </div>
 
@@ -324,11 +396,11 @@ select option{background:var(--bg3)}
     <div class="input-row">
       <div>
         <label>Modo de revisión</label>
-        <select id="review-mode">
-          <option value="comprehensive">Revisión completa (todos los agentes)</option>
-          <option value="quick">Revisión rápida (resumen + puntuación)</option>
-          <option value="technical">Revisión técnica (metodología + resultados)</option>
-          <option value="editorial">Revisión editorial (claridad + estructura)</option>
+        <select id="review-mode" onchange="updateModelBadge()">
+          <option value="comprehensive">Revisión completa (7 agentes)</option>
+          <option value="quick">Revisión rápida (3 agentes)</option>
+          <option value="technical">Revisión técnica (5 agentes)</option>
+          <option value="editorial">Revisión editorial (4 agentes)</option>
         </select>
       </div>
       <div>
@@ -369,7 +441,7 @@ select option{background:var(--bg3)}
   </div>
 
   <div class="card">
-    <div class="card-title">🚦 Pipeline de agentes</div>
+    <div class="card-title">🚦 Pipeline</div>
     <div class="phase-steps" id="phase-steps">
       <div class="phase-step" id="phase-0"><span class="phase-num">📋</span>Lectura</div>
       <div class="phase-step" id="phase-1"><span class="phase-num">🔍</span>Análisis</div>
@@ -378,22 +450,33 @@ select option{background:var(--bg3)}
       <div class="phase-step" id="phase-4"><span class="phase-num">✅</span>Decisión</div>
     </div>
     <div class="log-area" id="log-area">
-      <div class="log-line">— Sistema listo. Pulsa "Iniciar revisión" para comenzar. —</div>
+      <div class="log-line">— Sistema listo. —</div>
+    </div>
+    <div id="error-summary">
+      <h4>⚠ Agentes con errores</h4>
+      <div id="error-list"></div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-title">🤖 Estado de los agentes</div>
-    <div class="agent-grid" id="agent-status-grid">
-      <!-- Rendered by JS -->
+    <div class="agent-grid" id="agent-status-grid"></div>
+  </div>
+
+  <!-- CTA on completion -->
+  <div id="review-done-cta" style="display:none;background:rgba(5,150,105,.07);border:1px solid rgba(5,150,105,.2);border-radius:var(--radius);padding:18px 20px;margin-top:4px;display:none;align-items:center;justify-content:space-between;gap:14px">
+    <div>
+      <div style="font-weight:500;color:var(--accent3);font-size:14px">✅ Revisión completada</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;font-family:'DM Mono',monospace" id="cta-meta"></div>
     </div>
+    <button class="btn btn-success" onclick="showView('scores')">Ver resultados →</button>
   </div>
 
   <div class="btn-row">
     <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopReview()" disabled>⏹ Parar</button>
     <button class="btn btn-secondary btn-sm" onclick="showView('upload')">← Editar opciones</button>
     <div style="flex:1"></div>
-    <span id="run-summary" style="font-size:12px;color:var(--text3);align-self:center"></span>
+    <span id="run-summary" style="font-size:12px;color:var(--text3);align-self:center;font-family:'DM Mono',monospace"></span>
   </div>
 </div>
 
@@ -401,33 +484,25 @@ select option{background:var(--bg3)}
 <div class="view" id="view-scores">
   <div class="page-header">
     <h2>📊 Puntuaciones &amp; Feedback</h2>
-    <p>Análisis cuantitativo y cualitativo del paper generado por el agente evaluador.</p>
+    <p>Análisis cuantitativo y cualitativo generado por el agente evaluador.</p>
   </div>
 
   <div id="scores-placeholder" class="placeholder">
     <span class="ico">📊</span>
-    Las puntuaciones aparecerán aquí después de ejecutar la revisión.
+    Las puntuaciones aparecerán aquí después de completar una revisión.<br>
+    <a onclick="showView('upload')" style="cursor:pointer">← Subir un paper para empezar</a>
   </div>
 
   <div id="scores-content" style="display:none">
     <div class="scores-grid" id="scores-grid"></div>
-
     <div class="review-tabs">
-      <button class="rtab active" onclick="switchRTab(this,'tab-feedback')">💬 Feedback detallado</button>
+      <button class="rtab active" onclick="switchRTab(this,'tab-feedback')">💬 Feedback</button>
       <button class="rtab" onclick="switchRTab(this,'tab-summary')">📝 Resumen ejecutivo</button>
-      <button class="rtab" onclick="switchRTab(this,'tab-raw')">📄 Revisión completa</button>
+      <button class="rtab" onclick="switchRTab(this,'tab-raw')">📄 Revisión por agente</button>
     </div>
-
-    <div class="rtab-content active" id="tab-feedback">
-      <div id="feedback-list"></div>
-    </div>
-    <div class="rtab-content" id="tab-summary">
-      <div class="review-output" id="summary-output"></div>
-    </div>
-    <div class="rtab-content" id="tab-raw">
-      <div class="review-output" id="raw-output"></div>
-    </div>
-
+    <div class="rtab-content active" id="tab-feedback"><div id="feedback-list"></div></div>
+    <div class="rtab-content" id="tab-summary"><div class="review-output" id="summary-output"></div></div>
+    <div class="rtab-content" id="tab-raw"><div id="raw-output"></div></div>
     <div class="btn-row">
       <button class="btn btn-secondary btn-sm" onclick="copyReview()">📋 Copiar revisión</button>
       <button class="btn btn-secondary btn-sm" onclick="downloadReview()">⬇ Descargar .txt</button>
@@ -435,26 +510,33 @@ select option{background:var(--bg3)}
   </div>
 </div>
 
+<!-- VIEW: HISTORY -->
+<div class="view" id="view-history">
+  <div class="page-header">
+    <h2>🕓 Historial</h2>
+    <p>Últimas 5 revisiones guardadas localmente en tu navegador.</p>
+  </div>
+  <div id="history-list"></div>
+  <div class="btn-row">
+    <button class="btn btn-danger btn-sm" onclick="clearHistory()">🗑 Borrar historial</button>
+  </div>
+</div>
+
 <!-- VIEW: AGENTS -->
 <div class="view" id="view-agents">
   <div class="page-header">
     <h2>🤖 Agentes &amp; Prompts</h2>
-    <p>Edita los system prompts de cada agente. Los cambios se aplican en la próxima ejecución. Usa las variables disponibles para personalizar cada etapa.</p>
+    <p>Edita los system prompts de cada agente. Los cambios se aplican en la próxima ejecución.</p>
   </div>
-
   <div class="notice notice-info">
-    ℹ️ Variables disponibles: <code>{{paper_text}}</code> <code>{{paper_title}}</code> <code>{{discipline}}</code> <code>{{lang}}</code> <code>{{previous_analysis}}</code> <code>{{scores}}</code>
+    ℹ️ Variables: <code>{{paper_text}}</code> <code>{{paper_title}}</code> <code>{{discipline}}</code> <code>{{lang}}</code> <code>{{previous_analysis}}</code>
   </div>
-
-  <div style="display:flex;gap:10px;margin-bottom:16px">
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
     <button class="btn btn-secondary btn-sm" onclick="resetAllPrompts()">↺ Restaurar defaults</button>
     <button class="btn btn-secondary btn-sm" onclick="expandAllAgents()">⊞ Expandir todos</button>
     <button class="btn btn-secondary btn-sm" onclick="collapseAllAgents()">⊟ Colapsar todos</button>
   </div>
-
-  <div class="agent-grid" id="agent-edit-grid">
-    <!-- Rendered by JS -->
-  </div>
+  <div class="agent-grid" id="agent-edit-grid"></div>
 </div>
 
 <!-- VIEW: SETTINGS -->
@@ -465,18 +547,24 @@ select option{background:var(--bg3)}
   </div>
 
   <div class="card">
-    <div class="card-title">🔑 OpenAI API Key</div>
-    <div class="notice notice-info">
-      🔒 La key se usa directamente desde tu navegador y nunca sale de él. No se envía a ningún servidor externo.
+    <div class="card-title">🔑 API Key</div>
+    <div class="notice notice-info">🔒 La key se usa directamente desde tu navegador y nunca se envía a ningún servidor nuestro.</div>
+    <div style="margin-bottom:10px">
+      <label>Proveedor activo</label>
+      <select id="provider-select" onchange="onProviderChange()">
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+      </select>
     </div>
-    <label>API Key</label>
-    <div class="input-group" style="margin-bottom:12px">
+    <label id="key-label">OpenAI API Key</label>
+    <div class="input-group" style="margin-bottom:10px">
       <input type="password" id="api-key-input" placeholder="sk-...">
       <button class="eye" onclick="toggleKey()">👁</button>
     </div>
+    <div id="key-hint" class="notice notice-warn" style="display:none"></div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
       <input type="checkbox" id="save-key" style="width:auto">
-      <label style="margin:0;text-transform:none;font-size:12px;color:var(--text2)">Guardar en localStorage</label>
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text2);font-family:var(--font-body)">Guardar en localStorage</label>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary btn-sm" onclick="saveApiKey()">💾 Guardar</button>
@@ -488,18 +576,23 @@ select option{background:var(--bg3)}
     <div class="card-title">🧠 Modelo &amp; Parámetros</div>
     <div class="input-row">
       <div>
-        <label>Modelo OpenAI</label>
-        <select id="model-select">
-          <option value="claude-sonnet-4-20250514">claude-sonnet-4 (Anthropic)</option>
-          <option value="gpt-4o-mini" selected>gpt-4o-mini — rápido ✅</option>
-          <option value="gpt-4o">gpt-4o — alta calidad</option>
-          <option value="gpt-4-turbo">gpt-4-turbo</option>
-          <option value="gpt-3.5-turbo">gpt-3.5-turbo — económico</option>
+        <label>Modelo</label>
+        <select id="model-select" onchange="updateModelBadge()">
+          <optgroup label="OpenAI">
+            <option value="gpt-4o-mini" selected>gpt-4o-mini — rápido ✅</option>
+            <option value="gpt-4o">gpt-4o — alta calidad</option>
+            <option value="gpt-4-turbo">gpt-4-turbo</option>
+            <option value="gpt-3.5-turbo">gpt-3.5-turbo — económico</option>
+          </optgroup>
+          <optgroup label="Anthropic">
+            <option value="claude-sonnet-4-20250514">claude-sonnet-4</option>
+            <option value="claude-haiku-4-5-20251001">claude-haiku-4.5 — rápido</option>
+          </optgroup>
         </select>
       </div>
       <div>
-        <label>Temperatura <span class="tip" data-tip="0=determinista, 1=creativo">?</span></label>
-        <input type="text" id="temp-input" value="0.3" style="width:80px">
+        <label>Temperatura <span class="tip" data-tip="0=determinista · 1=creativo">?</span></label>
+        <input type="text" id="temp-input" value="0.3" style="width:80px" onchange="updateModelBadge()">
       </div>
     </div>
     <div style="margin-top:12px">
@@ -513,7 +606,7 @@ select option{background:var(--bg3)}
 
   <div class="card">
     <div class="card-title">📊 Estadísticas de uso</div>
-    <div id="usage-stats" style="font-size:13px;color:var(--text2);line-height:2">
+    <div style="font-size:13px;color:var(--text2);line-height:2.2;font-family:var(--font-body)">
       Revisiones completadas: <strong id="stat-reviews">0</strong><br>
       Tokens usados (estimado): <strong id="stat-tokens">0</strong><br>
       Coste estimado: <strong id="stat-cost">$0.00</strong>
@@ -527,38 +620,33 @@ select option{background:var(--bg3)}
 </div><!-- /main -->
 
 <script>
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 // STATE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 let state = {
-  apiKey: '',
-  model: 'gpt-4o-mini',
-  temperature: 0.3,
-  maxTokens: 1500,
-  paperText: '',
-  paperTitle: '',
-  discipline: 'general',
-  reviewLang: 'es',
-  reviewMode: 'comprehensive',
-  running: false,
-  stopped: false,
-  results: null,
-  stats: { reviews: 0, tokens: 0, cost: 0 }
+  apiKey:'', provider:'openai', model:'gpt-4o-mini',
+  temperature:0.3, maxTokens:1500,
+  paperText:'', paperTitle:'',
+  discipline:'general', reviewLang:'es', reviewMode:'comprehensive',
+  running:false, stopped:false, results:null,
+  stats:{reviews:0,tokens:0,cost:0},
+  skipConfirm:false, textLocked:false,
+  erroredAgents:[]
 };
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 // AGENT DEFINITIONS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
+const AGENT_NAMES_ES = {
+  reader:'Lector', methodologist:'Metodólogo', critic:'Revisor Crítico',
+  editor:'Editor', ethicist:'Revisor Ético', synthesizer:'Sintetizador', scorer:'Evaluador'
+};
+
 const DEFAULT_AGENTS = [
-  {
-    id: 'reader',
-    name: 'Reader',
-    role: 'Lectura y estructuración',
-    phase: 0,
-    icon: '📋',
-    desc: 'Lee el paper, extrae metadata, identifica secciones y genera un índice estructurado del contenido.',
-    vars: ['{{paper_text}}', '{{paper_title}}', '{{discipline}}', '{{lang}}'],
-    prompt: `Eres un experto lector y analizador de artículos científicos. Tu tarea es procesar el siguiente artículo y extraer su estructura.
+  {id:'reader',name:'Reader',nameEs:'Lector',role:'Lectura y estructuración',phase:0,icon:'📋',
+   desc:'Lee el paper, extrae metadata, identifica secciones y genera un índice estructurado.',
+   vars:['{{paper_text}}','{{paper_title}}','{{discipline}}','{{lang}}'],
+   prompt:`Eres un experto lector y analizador de artículos científicos. Tu tarea es procesar el siguiente artículo y extraer su estructura.
 
 DISCIPLINA: {{discipline}}
 IDIOMA DE RESPUESTA: {{lang}}
@@ -568,143 +656,108 @@ Analiza el paper y responde en JSON estricto con este formato:
   "title": "título detectado",
   "authors": "autores si están disponibles",
   "abstract": "abstract o resumen (primeras 300 palabras si no hay abstract)",
-  "sections": ["lista", "de", "secciones", "detectadas"],
+  "sections": ["lista", "de", "secciones"],
   "keywords": ["palabras", "clave"],
-  "type": "tipo de artículo: experimental/review/theoretical/case_study/other",
+  "type": "experimental/review/theoretical/case_study/other",
   "year": "año si disponible",
   "venue": "revista/conferencia si disponible"
 }
 
 PAPER:
-{{paper_text}}`
-  },
-  {
-    id: 'methodologist',
-    name: 'Methodologist',
-    role: 'Análisis metodológico',
-    phase: 1,
-    icon: '🔬',
-    desc: 'Evalúa la solidez metodológica: diseño del estudio, tamaño muestral, estadística, reproducibilidad.',
-    vars: ['{{paper_text}}', '{{paper_title}}', '{{discipline}}', '{{lang}}', '{{previous_analysis}}'],
-    prompt: `Eres un experto en metodología científica especializado en {{discipline}}. Tu rol es analizar con rigor la metodología del artículo.
+{{paper_text}}`},
+  {id:'methodologist',name:'Methodologist',nameEs:'Metodólogo',role:'Análisis metodológico',phase:1,icon:'🔬',
+   desc:'Evalúa la solidez metodológica: diseño del estudio, estadística, reproducibilidad.',
+   vars:['{{paper_text}}','{{discipline}}','{{lang}}','{{previous_analysis}}'],
+   prompt:`Eres un experto en metodología científica especializado en {{discipline}}.
 
-IDIOMA DE RESPUESTA: {{lang}}
+IDIOMA: {{lang}}
 ESTRUCTURA DEL PAPER: {{previous_analysis}}
 
-Evalúa los siguientes aspectos y proporciona un análisis detallado en texto libre (NO JSON):
+Evalúa y proporciona un análisis detallado en texto libre:
 
 1. **Diseño del estudio**: ¿Es apropiado para los objetivos?
 2. **Muestra/Datos**: Tamaño, representatividad, sesgo de selección
 3. **Variables**: Definición, operacionalización, confusores
-4. **Análisis estadístico/computacional**: Adecuación, potencia, corrección por múltiples comparaciones
-5. **Reproducibilidad**: Disponibilidad de datos/código, descripción del protocolo
-6. **Limitaciones metodológicas**: Lista las principales
-7. **Puntuación metodológica**: [X/10] con justificación breve
-
-Sé específico y cita partes concretas del paper. Sé constructivo pero riguroso.
+4. **Análisis estadístico/computacional**: Adecuación, potencia
+5. **Reproducibilidad**: Datos/código disponibles, protocolo descrito
+6. **Limitaciones metodológicas principales**
+7. **Puntuación metodológica**: [X/10] con justificación
 
 PAPER:
-{{paper_text}}`
-  },
-  {
-    id: 'critic',
-    name: 'Critic',
-    role: 'Revisión crítica de contenido',
-    phase: 2,
-    icon: '🔍',
-    desc: 'Analiza la solidez de los argumentos, la validez de las conclusiones y la relación con la literatura.',
-    vars: ['{{paper_text}}', '{{paper_title}}', '{{discipline}}', '{{lang}}', '{{previous_analysis}}'],
-    prompt: `Eres un revisor senior de revistas científicas de alto impacto en {{discipline}}. Realiza una revisión crítica del contenido.
+{{paper_text}}`},
+  {id:'critic',name:'Critic',nameEs:'Revisor Crítico',role:'Revisión crítica de contenido',phase:2,icon:'🔍',
+   desc:'Analiza la solidez de los argumentos, validez de conclusiones y relación con la literatura.',
+   vars:['{{paper_text}}','{{discipline}}','{{lang}}','{{previous_analysis}}'],
+   prompt:`Eres un revisor senior de revistas científicas de alto impacto en {{discipline}}.
 
-IDIOMA DE RESPUESTA: {{lang}}
+IDIOMA: {{lang}}
 ANÁLISIS PREVIO: {{previous_analysis}}
 
 Evalúa:
 
-1. **Novedad y contribución**: ¿Qué aporta este paper que no existía? ¿Es incremental o genuinamente novedoso?
-2. **Solidez de los argumentos**: ¿Están bien respaldadas las afirmaciones por los datos/evidencia?
-3. **Conclusiones**: ¿Son las conclusiones apropiadas dada la evidencia presentada? ¿Hay overfitting de interpretación?
-4. **Relación con el estado del arte**: ¿Cita apropiadamente la literatura relevante? ¿Ignora trabajo relacionado importante?
-5. **Reproducibilidad científica**: ¿Podría otro grupo replicar este trabajo?
-6. **Potenciales sesgos**: Sesgo de confirmación, cherry-picking, p-hacking, HARKing
+1. **Novedad y contribución**: ¿Qué aporta? ¿Incremental o genuinamente novedoso?
+2. **Solidez argumental**: ¿Las afirmaciones están respaldadas por los datos?
+3. **Conclusiones**: ¿Son apropiadas? ¿Hay overfitting de interpretación?
+4. **Estado del arte**: ¿Cita apropiadamente? ¿Ignora trabajo relacionado?
+5. **Reproducibilidad científica**
+6. **Sesgos potenciales**: confirmación, cherry-picking, p-hacking
 7. **Puntuación de impacto científico**: [X/10]
 
-Incluye al menos 3 fortalezas y 3 debilidades concretas.
+Al menos 3 fortalezas y 3 debilidades concretas.
 
 PAPER:
-{{paper_text}}`
-  },
-  {
-    id: 'editor',
-    name: 'Editor',
-    role: 'Claridad, estructura y escritura',
-    phase: 2,
-    icon: '✍️',
-    desc: 'Evalúa la claridad expositiva, la estructura narrativa, las figuras/tablas y el estilo de escritura.',
-    vars: ['{{paper_text}}', '{{paper_title}}', '{{lang}}', '{{previous_analysis}}'],
-    prompt: `Eres un editor científico experimentado. Evalúa la calidad de escritura y presentación del artículo.
+{{paper_text}}`},
+  {id:'editor',name:'Editor',nameEs:'Editor',role:'Claridad, estructura y escritura',phase:2,icon:'✍️',
+   desc:'Evalúa claridad expositiva, estructura narrativa, figuras/tablas y estilo de escritura.',
+   vars:['{{paper_text}}','{{lang}}'],
+   prompt:`Eres un editor científico experimentado.
 
-IDIOMA DE RESPUESTA: {{lang}}
+IDIOMA: {{lang}}
 
 Analiza:
 
-1. **Claridad del abstract**: ¿Resume adecuadamente el paper? ¿Menciona resultados concretos?
-2. **Estructura narrativa**: ¿El flujo lógico del paper es coherente? ¿Se desarrolla bien la historia científica?
-3. **Claridad expositiva**: ¿Son los conceptos técnicos bien explicados? ¿Hay jerga innecesaria?
-4. **Figuras y tablas**: ¿Son informativas y bien referenciadas? ¿Tienen títulos adecuados?
-5. **Referencias**: ¿Son apropiadas, recientes y completas?
-6. **Formato y estilo**: Consistencia, gramática (en la medida posible), formato de citas
+1. **Claridad del abstract**: ¿Resume adecuadamente? ¿Menciona resultados concretos?
+2. **Estructura narrativa**: ¿El flujo lógico es coherente?
+3. **Claridad expositiva**: ¿Conceptos técnicos bien explicados?
+4. **Figuras y tablas**: ¿Informativas y bien referenciadas?
+5. **Referencias**: ¿Apropiadas, recientes y completas?
+6. **Formato y estilo**: Consistencia, gramática, formato de citas
 7. **Puntuación editorial**: [X/10]
 
-Proporciona sugerencias concretas de mejora con ejemplos cuando sea posible.
+Sugerencias concretas con ejemplos cuando sea posible.
 
 PAPER:
-{{paper_text}}`
-  },
-  {
-    id: 'ethicist',
-    name: 'Ethics Reviewer',
-    role: 'Evaluación ética y de integridad',
-    phase: 3,
-    icon: '⚖️',
-    desc: 'Revisa aspectos éticos: conflictos de interés, bienestar de sujetos, integridad de datos, plagio potencial.',
-    vars: ['{{paper_text}}', '{{paper_title}}', '{{discipline}}', '{{lang}}'],
-    prompt: `Eres un revisor especializado en ética de la investigación científica. Evalúa los aspectos éticos del artículo.
+{{paper_text}}`},
+  {id:'ethicist',name:'Ethics Reviewer',nameEs:'Revisor Ético',role:'Evaluación ética e integridad',phase:3,icon:'⚖️',
+   desc:'Revisa aspectos éticos: conflictos de interés, integridad de datos, autoría.',
+   vars:['{{paper_text}}','{{discipline}}','{{lang}}'],
+   prompt:`Eres un revisor especializado en ética de la investigación científica.
 
 DISCIPLINA: {{discipline}}
 IDIOMA: {{lang}}
 
 Revisa:
 
-1. **Declaración de conflictos de interés**: ¿Se mencionan? ¿Parecen apropiados?
-2. **Aprobación ética** (si aplica): Estudios con humanos/animales, consentimiento informado
-3. **Integridad de datos**: ¿Hay señales de manipulación? ¿Los datos parecen consistentes?
-4. **Autoría**: ¿Parece apropiada? ¿Hay indicios de autoría inapropiada o ghost authorship?
-5. **Financiación**: ¿Hay potencial sesgo de financiador?
-6. **Impacto potencial negativo**: ¿Podría este trabajo tener aplicaciones dañinas?
-7. **Señales de integridad académica**: Posible auto-plagio, fragmentación de resultados (salami slicing)
-8. **Puntuación ética**: [X/10]
-
-Si no hay aspectos éticos preocupantes, indícalo explícitamente con justificación.
+1. **Conflictos de interés**: ¿Se declaran? ¿Son apropiados?
+2. **Aprobación ética** (si aplica): Estudios con humanos/animales, consentimiento
+3. **Integridad de datos**: ¿Señales de manipulación? ¿Datos consistentes?
+4. **Autoría**: ¿Apropiada? ¿Ghost authorship?
+5. **Financiación**: ¿Sesgo de financiador?
+6. **Autoplagio / salami slicing**
+7. **Puntuación ética**: [X/10]
 
 PAPER:
-{{paper_text}}`
-  },
-  {
-    id: 'synthesizer',
-    name: 'Synthesizer',
-    role: 'Síntesis y puntuación final',
-    phase: 3,
-    icon: '🎯',
-    desc: 'Integra todos los análisis previos y genera una síntesis consolidada con puntuaciones y recomendación editorial.',
-    vars: ['{{paper_text}}', '{{paper_title}}', '{{lang}}', '{{previous_analysis}}'],
-    prompt: `Eres el editor jefe de una revista científica de alto impacto. Basándote en los análisis previos de los revisores, elabora una síntesis consolidada.
+{{paper_text}}`},
+  {id:'synthesizer',name:'Synthesizer',nameEs:'Sintetizador',role:'Síntesis y puntuación final',phase:3,icon:'🎯',
+   desc:'Integra todos los análisis y genera síntesis con puntuaciones y recomendación editorial.',
+   vars:['{{paper_title}}','{{lang}}','{{previous_analysis}}'],
+   prompt:`Eres el editor jefe de una revista científica de alto impacto. Basándote en los análisis previos:
 
 IDIOMA: {{lang}}
-ANÁLISIS PREVIOS DE LOS AGENTES:
+ANÁLISIS PREVIOS:
 {{previous_analysis}}
 
-Genera una síntesis estructurada con:
+Genera una síntesis estructurada:
 
 ## PUNTUACIONES FINALES
 - Metodología: X/10
@@ -720,122 +773,255 @@ Genera una síntesis estructurada con:
 (3-5 puntos concretos)
 
 ## RECOMENDACIONES PRIORITARIAS
-(Lista numerada de los cambios más importantes, ordenados por impacto)
+(Lista numerada, ordenadas por impacto)
 
 ## RECOMENDACIÓN EDITORIAL
 Elige UNA: Accept / Minor Revision / Major Revision / Reject
 Justifica en 2-3 frases.
 
 ## RESUMEN PARA LOS AUTORES
-(Párrafo de 150-200 palabras en tono constructivo dirigido a los autores)`
-  },
-  {
-    id: 'scorer',
-    name: 'Scorer',
-    role: 'Extracción de puntuaciones',
-    phase: 4,
-    icon: '📊',
-    desc: 'Extrae y estructura las puntuaciones finales en formato JSON para los gráficos.',
-    vars: ['{{previous_analysis}}', '{{lang}}'],
-    prompt: `Eres un extractor de datos. A partir de la síntesis del revisor, extrae las puntuaciones y genera SOLO un JSON válido.
+(150-200 palabras en tono constructivo)`},
+  {id:'scorer',name:'Scorer',nameEs:'Evaluador',role:'Extracción de puntuaciones JSON',phase:4,icon:'📊',
+   desc:'Extrae y estructura las puntuaciones en formato JSON para los gráficos.',
+   vars:['{{previous_analysis}}'],
+   prompt:`Extrae las puntuaciones de la síntesis y devuelve SOLO JSON válido, sin markdown ni texto extra:
 
 SÍNTESIS:
 {{previous_analysis}}
 
-Responde ÚNICAMENTE con JSON, sin texto adicional, sin markdown:
-{
-  "methodology": 7,
-  "content": 8,
-  "editorial": 6,
-  "ethics": 9,
-  "overall": 7.5,
-  "recommendation": "Minor Revision",
-  "strengths": ["fortaleza 1", "fortaleza 2", "fortaleza 3"],
-  "weaknesses": ["debilidad 1", "debilidad 2", "debilidad 3"],
-  "feedback_items": [
-    {"type": "strength", "section": "Metodología", "text": "descripción de la fortaleza"},
-    {"type": "weakness", "section": "Resultados", "text": "descripción de la debilidad"},
-    {"type": "suggestion", "section": "Discusión", "text": "sugerencia de mejora"},
-    {"type": "question", "section": "General", "text": "pregunta para los autores"}
-  ]
-}`
-  }
+{"methodology":7,"content":8,"editorial":6,"ethics":9,"overall":7.5,"recommendation":"Minor Revision","strengths":["fortaleza 1","fortaleza 2","fortaleza 3"],"weaknesses":["debilidad 1","debilidad 2"],"feedback_items":[{"type":"strength","section":"Metodología","text":"descripción"},{"type":"weakness","section":"Resultados","text":"descripción"},{"type":"suggestion","section":"Discusión","text":"sugerencia"},{"type":"question","section":"General","text":"pregunta"}]}`}
 ];
 
-// ═══════════════════════════════════════════════
-// AGENT STATE (runtime + editable prompts)
-// ═══════════════════════════════════════════════
 let agents = JSON.parse(JSON.stringify(DEFAULT_AGENTS));
 let agentStatuses = {};
 agents.forEach(a => agentStatuses[a.id] = 'idle');
 
-// Load from localStorage
+// ═══════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════
 function loadStorage() {
-  const saved = localStorage.getItem('autoreviewer_agents');
-  if (saved) {
-    const savedPrompts = JSON.parse(saved);
-    agents.forEach(a => {
-      if (savedPrompts[a.id]) a.prompt = savedPrompts[a.id];
-    });
-  }
-  const key = localStorage.getItem('autoreviewer_key');
+  const savedTheme = localStorage.getItem('ar_theme');
+  if (savedTheme === 'dark') { document.body.classList.add('dark'); document.getElementById('theme-ico').textContent = '🌙'; document.getElementById('theme-lbl').textContent = 'Tema oscuro'; }
+
+  const savedPrompts = localStorage.getItem('ar_agents');
+  if (savedPrompts) { const p = JSON.parse(savedPrompts); agents.forEach(a => { if (p[a.id]) a.prompt = p[a.id]; }); }
+
+  const key = localStorage.getItem('ar_key');
   if (key) { state.apiKey = key; document.getElementById('api-key-input').value = key; document.getElementById('save-key').checked = true; }
-  const settings = localStorage.getItem('autoreviewer_settings');
+
+  const settings = localStorage.getItem('ar_settings');
   if (settings) {
     const s = JSON.parse(settings);
+    state.provider = s.provider || 'openai';
     state.model = s.model || state.model;
     state.temperature = s.temperature || state.temperature;
     state.maxTokens = s.maxTokens || state.maxTokens;
+    state.skipConfirm = s.skipConfirm || false;
+    document.getElementById('provider-select').value = state.provider;
     document.getElementById('model-select').value = state.model;
     document.getElementById('temp-input').value = state.temperature;
     document.getElementById('max-tokens-input').value = state.maxTokens;
+    onProviderChange(true);
   }
-  const stats = localStorage.getItem('autoreviewer_stats');
+
+  const stats = localStorage.getItem('ar_stats');
   if (stats) { state.stats = JSON.parse(stats); updateStatsUI(); }
+
   updateApiStatusUI();
+  updateModelBadge();
+  checkApiBanner();
+  renderHistoryView();
 }
 
 function saveAgentPrompts() {
-  const obj = {};
-  agents.forEach(a => obj[a.id] = a.prompt);
-  localStorage.setItem('autoreviewer_agents', JSON.stringify(obj));
+  const obj = {}; agents.forEach(a => obj[a.id] = a.prompt);
+  localStorage.setItem('ar_agents', JSON.stringify(obj));
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 // NAVIGATION
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
   document.getElementById('view-' + id).classList.add('active');
-  document.getElementById('nav-' + id).classList.add('active');
+  const navEl = document.getElementById('nav-' + id);
+  if (navEl) navEl.classList.add('active');
   if (id === 'agents') renderAgentEditGrid();
   if (id === 'review') renderAgentStatusGrid();
+  if (id === 'history') renderHistoryView();
 }
 
-// ═══════════════════════════════════════════════
+function unlockNavItem(id) {
+  document.getElementById('nav-' + id)?.classList.remove('disabled');
+}
+
+// ═══════════════════════════════════
+// THEME
+// ═══════════════════════════════════
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark');
+  document.getElementById('theme-ico').textContent = isDark ? '🌙' : '☀️';
+  document.getElementById('theme-lbl').textContent = isDark ? 'Tema oscuro' : 'Tema claro';
+  localStorage.setItem('ar_theme', isDark ? 'dark' : 'light');
+}
+
+// ═══════════════════════════════════
+// PROGRESS BAR
+// ═══════════════════════════════════
+function setProgress(pct, state_) {
+  const bar = document.getElementById('progress-bar');
+  bar.style.width = pct + '%';
+  bar.className = state_ === 'done' ? 'done' : state_ === 'error' ? 'error' : '';
+  if (pct >= 100) setTimeout(() => { bar.style.width = '0'; bar.className = ''; }, 1200);
+}
+
+// ═══════════════════════════════════
+// API KEY & PROVIDER
+// ═══════════════════════════════════
+function checkApiBanner() {
+  const banner = document.getElementById('api-key-banner');
+  if (!state.apiKey) banner.classList.add('visible');
+  else banner.classList.remove('visible');
+}
+function saveBannerKey() {
+  const val = document.getElementById('banner-key-input').value.trim();
+  if (!val) return;
+  state.apiKey = val;
+  localStorage.setItem('ar_key', val);
+  document.getElementById('api-key-input').value = val;
+  document.getElementById('save-key').checked = true;
+  updateApiStatusUI(); checkApiBanner();
+  showNotice('✅ API key guardada', 'ok');
+}
+function saveApiKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val) { alert('Introduce una API key'); return; }
+  state.apiKey = val;
+  if (document.getElementById('save-key').checked) localStorage.setItem('ar_key', val);
+  updateApiStatusUI(); checkApiBanner();
+  showNotice('✅ API key guardada', 'ok');
+}
+function clearApiKey() {
+  state.apiKey = ''; document.getElementById('api-key-input').value = '';
+  localStorage.removeItem('ar_key'); updateApiStatusUI(); checkApiBanner();
+}
+function toggleKey() { const i = document.getElementById('api-key-input'); i.type = i.type === 'password' ? 'text' : 'password'; }
+function onProviderChange(silent) {
+  const prov = document.getElementById('provider-select').value;
+  state.provider = prov;
+  const isAnth = prov === 'anthropic';
+  document.getElementById('key-label').textContent = isAnth ? 'Anthropic API Key' : 'OpenAI API Key';
+  document.getElementById('api-key-input').placeholder = isAnth ? 'sk-ant-...' : 'sk-...';
+  const hint = document.getElementById('key-hint');
+  const keyVal = document.getElementById('api-key-input').value;
+  if (keyVal && isAnth && !keyVal.startsWith('sk-ant')) {
+    hint.textContent = '⚠ La key actual parece ser de OpenAI (sk-...). Para Anthropic necesitas una key sk-ant-...';
+    hint.style.display = 'flex';
+  } else if (keyVal && !isAnth && keyVal.startsWith('sk-ant')) {
+    hint.textContent = '⚠ La key actual parece ser de Anthropic (sk-ant-...). Para OpenAI necesitas una key sk-...';
+    hint.style.display = 'flex';
+  } else { hint.style.display = 'none'; }
+  if (!silent) updateModelBadge();
+}
+function updateApiStatusUI() {
+  document.getElementById('api-dot').className = state.apiKey ? 'dot on' : 'dot off';
+  document.getElementById('api-val-display').textContent = state.apiKey ? state.apiKey.substring(0,10) + '...' : 'No configurada';
+}
+function updateModelBadge() {
+  const model = document.getElementById('model-select')?.value || state.model;
+  const temp = document.getElementById('temp-input')?.value || state.temperature;
+  const mode = document.getElementById('review-mode')?.value || state.reviewMode;
+  const modeAgents = {comprehensive:7,quick:3,technical:5,editorial:4};
+  document.getElementById('model-badge-text').textContent = `${model} · temp ${temp} · ${modeAgents[mode]||'?'} agentes`;
+}
+
+// ═══════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════
+function saveSettings() {
+  state.provider = document.getElementById('provider-select').value;
+  state.model = document.getElementById('model-select').value;
+  state.temperature = parseFloat(document.getElementById('temp-input').value) || 0.3;
+  state.maxTokens = parseInt(document.getElementById('max-tokens-input').value) || 1500;
+  localStorage.setItem('ar_settings', JSON.stringify({provider:state.provider,model:state.model,temperature:state.temperature,maxTokens:state.maxTokens,skipConfirm:state.skipConfirm}));
+  updateModelBadge(); showNotice('✅ Ajustes guardados', 'ok');
+}
+
+// ═══════════════════════════════════
 // FILE UPLOAD
-// ═══════════════════════════════════════════════
-function handleFileUpload(input) {
+// ═══════════════════════════════════
+let pdfExtracting = false;
+
+async function handleFileUpload(input) {
   const file = input.files[0];
   if (!file) return;
+  if (!document.getElementById('paper-title').value)
+    document.getElementById('paper-title').value = file.name.replace(/\.(pdf|txt)$/i,'');
+
   document.getElementById('file-name-disp').textContent = file.name;
-  document.getElementById('file-size-disp').textContent = (file.size / 1024).toFixed(1) + ' KB';
-  document.getElementById('paper-info').style.display = 'block';
-  if (file.name.endsWith('.txt')) {
+  document.getElementById('file-size-disp').textContent = (file.size/1024).toFixed(1) + ' KB';
+  document.getElementById('paper-info').classList.add('visible');
+
+  if (file.name.toLowerCase().endsWith('.txt')) {
     const reader = new FileReader();
-    reader.onload = e => { document.getElementById('paper-text').value = e.target.result; };
+    reader.onload = e => {
+      const txt = e.target.result;
+      document.getElementById('paper-text').value = txt;
+      document.getElementById('file-size-disp').textContent = (file.size/1024).toFixed(1)+' KB · ✅ texto cargado';
+      lockTextArea(txt);
+    };
     reader.readAsText(file);
-  } else if (file.name.endsWith('.pdf')) {
-    addLog('⚠ PDF subido. Para extraer texto de PDF instala pdf.js o usa el campo de texto. El nombre del archivo se ha guardado.', 'info');
-    if (!document.getElementById('paper-title').value) {
-      document.getElementById('paper-title').value = file.name.replace('.pdf','');
+  } else if (file.name.toLowerCase().endsWith('.pdf')) {
+    pdfExtracting = true;
+    document.getElementById('start-btn').disabled = true;
+    document.getElementById('start-label').textContent = '⏳ Extrayendo PDF...';
+    document.getElementById('file-size-disp').textContent = (file.size/1024).toFixed(1)+' KB · ⏳ extrayendo...';
+    try {
+      const ab = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({data:ab}).promise;
+      let txt = '';
+      for (let p=1;p<=pdf.numPages;p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        txt += content.items.map(i=>i.str).join(' ')+'\n\n';
+      }
+      document.getElementById('paper-text').value = txt.trim();
+      document.getElementById('file-size-disp').textContent =
+        (file.size/1024).toFixed(1)+` KB · ✅ ${pdf.numPages} págs · ${txt.length.toLocaleString()} chars`;
+      lockTextArea(txt.trim());
+    } catch(err) {
+      document.getElementById('file-size-disp').textContent = '⚠ Error: '+err.message;
+    } finally {
+      pdfExtracting = false;
+      document.getElementById('start-btn').disabled = false;
+      document.getElementById('start-label').textContent = '▶ Iniciar revisión';
     }
   }
+  updateCharCount();
 }
-// Drag and drop
+
+function lockTextArea(txt) {
+  const ta = document.getElementById('paper-text');
+  ta.readOnly = true; state.textLocked = true;
+  document.getElementById('text-lock-btn').style.display = 'block';
+  document.getElementById('text-lock-btn').textContent = '🔒 Solo lectura — clic para editar';
+}
+function toggleTextLock() {
+  const ta = document.getElementById('paper-text');
+  state.textLocked = !state.textLocked;
+  ta.readOnly = state.textLocked;
+  document.getElementById('text-lock-btn').textContent = state.textLocked ? '🔒 Solo lectura — clic para editar' : '🔓 Editando';
+}
+function updateCharCount() {
+  const ta = document.getElementById('paper-text');
+  const n = ta.value.length;
+  document.getElementById('char-count').textContent = n > 0 ? n.toLocaleString()+' chars' : '';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const zone = document.getElementById('upload-zone');
+  zone.addEventListener('click', () => document.getElementById('file-input').click());
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
   zone.addEventListener('drop', e => {
@@ -843,135 +1029,251 @@ document.addEventListener('DOMContentLoaded', () => {
     const file = e.dataTransfer.files[0];
     if (file) { const dt = new DataTransfer(); dt.items.add(file); document.getElementById('file-input').files = dt.files; handleFileUpload(document.getElementById('file-input')); }
   });
+  document.getElementById('paper-text').addEventListener('input', updateCharCount);
   loadStorage();
   renderAgentStatusGrid();
   renderAgentEditGrid();
 });
 
-// ═══════════════════════════════════════════════
-// API KEY
-// ═══════════════════════════════════════════════
-function saveApiKey() {
-  const val = document.getElementById('api-key-input').value.trim();
-  if (!val) { alert('Introduce una API key'); return; }
-  state.apiKey = val;
-  if (document.getElementById('save-key').checked) localStorage.setItem('autoreviewer_key', val);
-  updateApiStatusUI();
-  showNotice('✅ API key guardada', 'ok');
+// ═══════════════════════════════════
+// CONFIRM MODAL
+// ═══════════════════════════════════
+function openConfirmModal() {
+  const mode = document.getElementById('review-mode').value;
+  const modeLabels = {comprehensive:'Completa',quick:'Rápida',technical:'Técnica',editorial:'Editorial'};
+  const modeAgents = {comprehensive:7,quick:3,technical:5,editorial:4};
+  const modeTimes = {comprehensive:'~5-10 min',quick:'~2-3 min',technical:'~4-7 min',editorial:'~3-5 min'};
+  const modeCosts = {comprehensive:'~$0.05-0.15',quick:'~$0.01-0.03',technical:'~$0.04-0.10',editorial:'~$0.03-0.08'};
+  document.getElementById('modal-meta').innerHTML = `
+    <div class="modal-meta-item"><span class="mmi-val">${modeLabels[mode]}</span><span class="mmi-label">Modo</span></div>
+    <div class="modal-meta-item"><span class="mmi-val">${modeAgents[mode]}</span><span class="mmi-label">Agentes</span></div>
+    <div class="modal-meta-item"><span class="mmi-val">${modeTimes[mode]}</span><span class="mmi-label">Tiempo est.</span></div>
+    <div class="modal-meta-item"><span class="mmi-val">${modeCosts[mode]}</span><span class="mmi-label">Coste est.</span></div>`;
+  document.getElementById('confirm-modal').classList.add('open');
 }
-function clearApiKey() {
-  state.apiKey = '';
-  document.getElementById('api-key-input').value = '';
-  localStorage.removeItem('autoreviewer_key');
-  updateApiStatusUI();
-}
-function toggleKey() {
-  const inp = document.getElementById('api-key-input');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-}
-function updateApiStatusUI() {
-  const dot = document.getElementById('api-dot');
-  const val = document.getElementById('api-val-display');
-  if (state.apiKey) {
-    dot.className = 'dot on';
-    val.textContent = state.apiKey.substring(0, 8) + '...';
-  } else {
-    dot.className = 'dot off';
-    val.textContent = 'No configurada';
+function closeConfirm() { document.getElementById('confirm-modal').classList.remove('open'); }
+function confirmAndRun() {
+  state.skipConfirm = document.getElementById('skip-confirm').checked;
+  if (state.skipConfirm) {
+    const s = JSON.parse(localStorage.getItem('ar_settings')||'{}');
+    s.skipConfirm = true; localStorage.setItem('ar_settings', JSON.stringify(s));
   }
+  closeConfirm(); runPipeline();
 }
 
-// ═══════════════════════════════════════════════
-// SETTINGS
-// ═══════════════════════════════════════════════
-function saveSettings() {
+// ═══════════════════════════════════
+// START REVIEW (validation + confirm)
+// ═══════════════════════════════════
+async function startReview() {
+  const paperText = document.getElementById('paper-text').value.trim();
+  if (!paperText) { showNotice('⚠ Pega el texto del paper o sube un archivo', 'warn'); return; }
+  if (pdfExtracting) { showNotice('⏳ Espera, el PDF todavía se está extrayendo...', 'warn'); return; }
+  const apiKey = state.apiKey || document.getElementById('api-key-input').value.trim();
+  if (!apiKey) {
+    document.getElementById('api-key-banner').classList.add('visible');
+    document.getElementById('banner-key-input').focus();
+    showNotice('⚠ Configura tu API key antes de continuar', 'warn'); return;
+  }
+  state.apiKey = apiKey;
+  state.paperText = paperText;
+  state.paperTitle = document.getElementById('paper-title').value.trim() || 'Paper sin título';
+  state.discipline = document.getElementById('discipline').value;
+  state.reviewLang = document.getElementById('review-lang').value;
+  state.reviewMode = document.getElementById('review-mode').value;
   state.model = document.getElementById('model-select').value;
-  state.temperature = parseFloat(document.getElementById('temp-input').value) || 0.3;
-  state.maxTokens = parseInt(document.getElementById('max-tokens-input').value) || 1500;
-  localStorage.setItem('autoreviewer_settings', JSON.stringify({ model: state.model, temperature: state.temperature, maxTokens: state.maxTokens }));
-  showNotice('✅ Ajustes guardados', 'ok');
+  state.temperature = parseFloat(document.getElementById('temp-input').value)||0.3;
+  state.maxTokens = parseInt(document.getElementById('max-tokens-input').value)||1500;
+
+  if (state.skipConfirm) runPipeline();
+  else openConfirmModal();
 }
 
-// ═══════════════════════════════════════════════
-// AGENT EDIT GRID
-// ═══════════════════════════════════════════════
-function renderAgentEditGrid() {
-  const grid = document.getElementById('agent-edit-grid');
-  grid.innerHTML = '';
-  agents.forEach((agent, idx) => {
-    const div = document.createElement('div');
-    div.className = 'agent-card';
-    div.id = 'edit-card-' + agent.id;
-    div.innerHTML = `
-      <div class="agent-header">
-        <div>
-          <div class="agent-name">${agent.icon} ${agent.name} <span class="badge badge-purple" style="margin-left:6px">Fase ${agent.phase + 1}</span></div>
-          <div class="agent-role">${agent.role}</div>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button class="edit-toggle" onclick="togglePromptEditor('${agent.id}')">✏️ Editar prompt</button>
-        </div>
+// ═══════════════════════════════════
+// PIPELINE
+// ═══════════════════════════════════
+async function runPipeline() {
+  state.running = true; state.stopped = false; state.erroredAgents = [];
+
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('start-spinner').style.display = 'inline-block';
+  document.getElementById('start-label').textContent = 'Procesando...';
+  document.getElementById('stop-btn').disabled = false;
+  document.getElementById('review-done-cta').style.display = 'none';
+  document.getElementById('error-summary').classList.remove('visible');
+
+  unlockNavItem('review'); unlockNavItem('scores'); unlockNavItem('history');
+  showView('review');
+  clearLog(); renderAgentStatusGrid();
+  agents.forEach(a => updateAgentStatus(a.id,'idle'));
+  setPhase(0); setProgress(2);
+
+  addLog('🚀 Iniciando pipeline de revisión multiagente...','info');
+  addLog(`📄 Paper: "${state.paperTitle}" | Modo: ${state.reviewMode}`,'info');
+  addLog(`🧠 Modelo: ${state.model} | Temperatura: ${state.temperature}`,'info');
+
+  const results = {};
+  const disciplineLabels = {general:'General',biomedical:'Biomédica',cs:'Informática/IA',physics:'Física/Matemáticas',social:'Ciencias Sociales',engineering:'Ingeniería'};
+  const langLabels = {es:'español',en:'English'};
+
+  let agentsToRun = [...agents];
+  if (state.reviewMode==='quick') agentsToRun = agents.filter(a=>['reader','synthesizer','scorer'].includes(a.id));
+  if (state.reviewMode==='technical') agentsToRun = agents.filter(a=>['reader','methodologist','critic','synthesizer','scorer'].includes(a.id));
+  if (state.reviewMode==='editorial') agentsToRun = agents.filter(a=>['reader','editor','synthesizer','scorer'].includes(a.id));
+
+  const tStart = Date.now();
+
+  for (let i=0; i<agentsToRun.length; i++) {
+    if (state.stopped) { addLog('⏹ Revisión detenida.','err'); break; }
+    const agent = agentsToRun[i];
+    setPhase(agent.phase);
+    updateAgentStatus(agent.id,'running');
+    addLog(`⟳ ${agent.icon} ${agent.name} (${agent.nameEs})...`,'run');
+    setProgress(Math.round((i/agentsToRun.length)*90)+5);
+
+    const prevAnalysis = Object.entries(results).map(([k,v])=>`=== ${k.toUpperCase()} ===\n${v}`).join('\n\n');
+    let prompt = agent.prompt
+      .replace(/\{\{paper_text\}\}/g, state.paperText.substring(0,6000))
+      .replace(/\{\{paper_title\}\}/g, state.paperTitle)
+      .replace(/\{\{discipline\}\}/g, disciplineLabels[state.discipline]||state.discipline)
+      .replace(/\{\{lang\}\}/g, langLabels[state.reviewLang]||state.reviewLang)
+      .replace(/\{\{previous_analysis\}\}/g, prevAnalysis.substring(0,4000))
+      .replace(/\{\{scores\}\}/g, JSON.stringify(results.scorer||{}));
+
+    try {
+      const resp = await callLLM(state.apiKey, prompt, state.model, state.temperature, state.maxTokens);
+      results[agent.id] = resp;
+      updateAgentStatus(agent.id,'done');
+      addLog(`✓ ${agent.name} completado (${resp.length.toLocaleString()} chars)`,'ok');
+    } catch(err) {
+      updateAgentStatus(agent.id,'error');
+      addLog(`✗ Error en ${agent.name}: ${err.message}`,'err');
+      results[agent.id] = `[Error: ${err.message}]`;
+      state.erroredAgents.push({name:agent.name, nameEs:agent.nameEs, error:err.message});
+    }
+    setPhase(agent.phase+1);
+  }
+
+  const elapsed = ((Date.now()-tStart)/1000).toFixed(0);
+  setProgress(100, state.erroredAgents.length>0?'error':'done');
+  addLog(`${state.erroredAgents.length?'⚠':'✅'} Pipeline completado en ${elapsed}s`,'ok');
+
+  // Error summary
+  if (state.erroredAgents.length) {
+    const es = document.getElementById('error-summary');
+    es.classList.add('visible');
+    document.getElementById('error-list').innerHTML = state.erroredAgents.map(e=>
+      `• <strong>${e.name}</strong> (${e.nameEs}): ${e.error}`).join('<br>');
+  }
+
+  let scores = null;
+  if (results.scorer) {
+    try { scores = JSON.parse(results.scorer.replace(/```json|```/g,'').trim()); }
+    catch(e) { addLog('⚠ No se pudieron parsear las puntuaciones JSON','info'); }
+  }
+
+  state.results = {raw:results, scores, elapsed, title:state.paperTitle, ts:Date.now()};
+  document.getElementById('run-summary').textContent = `✅ ${elapsed}s · ${agentsToRun.length} agentes`;
+
+  // Stats
+  state.stats.reviews += 1;
+  const tokenEst = Math.round(Object.values(results).join('').length/4);
+  state.stats.tokens += tokenEst;
+  state.stats.cost += tokenEst * 0.00000015;
+  localStorage.setItem('ar_stats', JSON.stringify(state.stats));
+  updateStatsUI();
+
+  // Save to history
+  saveToHistory({title:state.paperTitle, scores, elapsed, ts:Date.now(), raw:results});
+
+  // Render scores view
+  renderScoresView(results, scores);
+
+  // Show CTA
+  const cta = document.getElementById('review-done-cta');
+  cta.style.display = 'flex';
+  document.getElementById('cta-meta').textContent =
+    `${elapsed}s · ${agentsToRun.length} agentes · ${scores?.overall ? `Puntuación global: ${scores.overall}/10` : ''}`;
+
+  // Reset buttons
+  state.running = false;
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('start-spinner').style.display = 'none';
+  document.getElementById('start-label').textContent = '▶ Iniciar revisión';
+}
+
+function stopReview() {
+  state.stopped = true; state.running = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('start-spinner').style.display = 'none';
+  document.getElementById('start-label').textContent = '▶ Iniciar revisión';
+  addLog('⏹ Deteniendo...','info');
+}
+
+// ═══════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════
+function saveToHistory(entry) {
+  let hist = JSON.parse(localStorage.getItem('ar_history')||'[]');
+  hist.unshift({title:entry.title,scores:entry.scores,elapsed:entry.elapsed,ts:entry.ts});
+  hist = hist.slice(0,5);
+  localStorage.setItem('ar_history', JSON.stringify(hist));
+}
+function renderHistoryView() {
+  const list = document.getElementById('history-list');
+  const hist = JSON.parse(localStorage.getItem('ar_history')||'[]');
+  if (!hist.length) {
+    list.innerHTML = '<div class="placeholder"><span class="ico">🕓</span>Aún no hay revisiones guardadas.</div>';
+    return;
+  }
+  const recColors = {'Accept':'badge-green','Minor Revision':'badge-accent','Major Revision':'badge-warn','Reject':'badge-warn'};
+  const scoreClass = v => v>=7?'score-high':v>=5?'score-mid':'score-low';
+  list.innerHTML = hist.map((h,i) => {
+    const overall = h.scores?.overall;
+    const rec = h.scores?.recommendation||'—';
+    const dt = new Date(h.ts).toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'});
+    return `<div class="history-item" onclick="loadHistoryEntry(${i})">
+      <div class="history-score ${scoreClass(overall)}">${overall!=null?overall.toFixed(1):'—'}</div>
+      <div class="history-info">
+        <div class="history-title">${h.title||'Paper sin título'}</div>
+        <div class="history-meta">${dt} · ${h.elapsed}s</div>
       </div>
-      <div class="agent-desc">${agent.desc}</div>
-      <div class="prompt-editor" id="editor-${agent.id}">
-        <label style="margin-bottom:6px">System Prompt del agente</label>
-        <textarea id="prompt-${agent.id}" rows="10">${escapeHtml(agent.prompt)}</textarea>
-        <div class="vars">Variables: ${agent.vars.map(v => `<code>${v}</code>`).join(' ')}</div>
-        <div class="btn-row" style="margin-top:10px">
-          <button class="btn btn-primary btn-sm" onclick="saveAgentPrompt('${agent.id}')">💾 Guardar</button>
-          <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompt('${agent.id}')">↺ Reset</button>
-        </div>
-      </div>`;
-    grid.appendChild(div);
-  });
+      <span class="history-rec badge ${recColors[rec]||'badge-purple'}">${rec}</span>
+    </div>`;
+  }).join('');
+}
+function loadHistoryEntry(idx) {
+  const hist = JSON.parse(localStorage.getItem('ar_history')||'[]');
+  const entry = hist[idx];
+  if (!entry) return;
+  document.getElementById('scores-placeholder').style.display = 'none';
+  document.getElementById('scores-content').style.display = 'block';
+  renderScoresView({}, entry.scores);
+  showView('scores');
+  showNotice('📂 Revisión cargada desde historial', 'info');
+}
+function clearHistory() {
+  if (!confirm('¿Borrar todo el historial?')) return;
+  localStorage.removeItem('ar_history'); renderHistoryView();
+  showNotice('🗑 Historial borrado', 'info');
 }
 
-function togglePromptEditor(id) {
-  const ed = document.getElementById('editor-' + id);
-  const card = document.getElementById('edit-card-' + id);
-  const isOpen = ed.classList.contains('open');
-  ed.classList.toggle('open');
-  card.classList.toggle('editing', !isOpen);
-}
-function expandAllAgents() { agents.forEach(a => { document.getElementById('editor-' + a.id)?.classList.add('open'); document.getElementById('edit-card-' + a.id)?.classList.add('editing'); }); }
-function collapseAllAgents() { agents.forEach(a => { document.getElementById('editor-' + a.id)?.classList.remove('open'); document.getElementById('edit-card-' + a.id)?.classList.remove('editing'); }); }
-function saveAgentPrompt(id) {
-  const ta = document.getElementById('prompt-' + id);
-  const agent = agents.find(a => a.id === id);
-  agent.prompt = ta.value;
-  saveAgentPrompts();
-  showNotice(`✅ Prompt de ${agent.name} guardado`, 'ok');
-}
-function resetAgentPrompt(id) {
-  const def = DEFAULT_AGENTS.find(a => a.id === id);
-  const agent = agents.find(a => a.id === id);
-  agent.prompt = def.prompt;
-  document.getElementById('prompt-' + id).value = def.prompt;
-  saveAgentPrompts();
-}
-function resetAllPrompts() {
-  if (!confirm('¿Restaurar todos los prompts a los valores por defecto?')) return;
-  agents = JSON.parse(JSON.stringify(DEFAULT_AGENTS));
-  saveAgentPrompts();
-  renderAgentEditGrid();
-  showNotice('↺ Todos los prompts restaurados', 'info');
-}
-
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 // AGENT STATUS GRID
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 function renderAgentStatusGrid() {
   const grid = document.getElementById('agent-status-grid');
   grid.innerHTML = '';
   agents.forEach(agent => {
-    const status = agentStatuses[agent.id] || 'idle';
+    const status = agentStatuses[agent.id]||'idle';
     const div = document.createElement('div');
     div.className = `agent-card ${status}`;
-    div.id = 'status-card-' + agent.id;
+    div.id = 'status-card-'+agent.id;
     div.innerHTML = `
       <div class="agent-header">
         <div>
-          <div class="agent-name">${agent.icon} ${agent.name} <span class="badge badge-purple" style="margin-left:6px">Fase ${agent.phase + 1}</span></div>
+          <div class="agent-name-es">${agent.nameEs}</div>
+          <div class="agent-name">${agent.icon} ${agent.name} <span class="badge badge-purple" style="margin-left:6px">Fase ${agent.phase+1}</span></div>
           <div class="agent-role">${agent.role}</div>
         </div>
         <span class="agent-status ${status}" id="status-badge-${agent.id}">${statusLabel(status)}</span>
@@ -980,360 +1282,234 @@ function renderAgentStatusGrid() {
     grid.appendChild(div);
   });
 }
-
 function updateAgentStatus(id, status) {
   agentStatuses[id] = status;
-  const card = document.getElementById('status-card-' + id);
-  const badge = document.getElementById('status-badge-' + id);
-  if (card) { card.className = `agent-card ${status}`; }
+  const card = document.getElementById('status-card-'+id);
+  const badge = document.getElementById('status-badge-'+id);
+  if (card) card.className = `agent-card ${status}`;
   if (badge) { badge.className = `agent-status ${status}`; badge.textContent = statusLabel(status); }
 }
-function statusLabel(s) { return { idle: '— idle', running: '⟳ ejecutando', done: '✓ hecho', error: '✗ error' }[s] || s; }
+function statusLabel(s) { return {idle:'— idle',running:'⟳ ejecutando',done:'✓ hecho',error:'✗ error'}[s]||s; }
 
-// ═══════════════════════════════════════════════
-// LOG
-// ═══════════════════════════════════════════════
-function addLog(msg, type = 'line') {
+// ═══════════════════════════════════
+// AGENT EDIT GRID
+// ═══════════════════════════════════
+function renderAgentEditGrid() {
+  const grid = document.getElementById('agent-edit-grid');
+  grid.innerHTML = '';
+  agents.forEach(agent => {
+    const div = document.createElement('div');
+    div.className = 'agent-card';
+    div.id = 'edit-card-'+agent.id;
+    div.innerHTML = `
+      <div class="agent-header">
+        <div>
+          <div class="agent-name-es">${agent.nameEs}</div>
+          <div class="agent-name">${agent.icon} ${agent.name} <span class="badge badge-purple" style="margin-left:6px">Fase ${agent.phase+1}</span></div>
+          <div class="agent-role">${agent.role}</div>
+        </div>
+        <button class="edit-toggle" onclick="togglePromptEditor('${agent.id}')">✏️ Editar prompt</button>
+      </div>
+      <div class="agent-desc">${agent.desc}</div>
+      <div class="prompt-editor" id="editor-${agent.id}">
+        <label style="margin-bottom:6px">System Prompt</label>
+        <textarea id="prompt-${agent.id}" rows="10">${escapeHtml(agent.prompt)}</textarea>
+        <div class="vars">Variables: ${agent.vars.map(v=>`<code>${v}</code>`).join(' ')}</div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-primary btn-sm" onclick="saveAgentPrompt('${agent.id}')">💾 Guardar</button>
+          <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompt('${agent.id}')">↺ Reset</button>
+        </div>
+      </div>`;
+    grid.appendChild(div);
+  });
+}
+function togglePromptEditor(id) {
+  document.getElementById('editor-'+id)?.classList.toggle('open');
+  document.getElementById('edit-card-'+id)?.classList.toggle('editing');
+}
+function expandAllAgents() { agents.forEach(a=>{document.getElementById('editor-'+a.id)?.classList.add('open');document.getElementById('edit-card-'+a.id)?.classList.add('editing');}); }
+function collapseAllAgents() { agents.forEach(a=>{document.getElementById('editor-'+a.id)?.classList.remove('open');document.getElementById('edit-card-'+a.id)?.classList.remove('editing');}); }
+function saveAgentPrompt(id) {
+  agents.find(a=>a.id===id).prompt = document.getElementById('prompt-'+id).value;
+  saveAgentPrompts(); showNotice(`✅ Prompt de ${agents.find(a=>a.id===id).nameEs} guardado`,'ok');
+}
+function resetAgentPrompt(id) {
+  const def = DEFAULT_AGENTS.find(a=>a.id===id);
+  agents.find(a=>a.id===id).prompt = def.prompt;
+  document.getElementById('prompt-'+id).value = def.prompt;
+  saveAgentPrompts();
+}
+function resetAllPrompts() {
+  if (!confirm('¿Restaurar todos los prompts?')) return;
+  agents = JSON.parse(JSON.stringify(DEFAULT_AGENTS));
+  saveAgentPrompts(); renderAgentEditGrid();
+  showNotice('↺ Prompts restaurados','info');
+}
+
+// ═══════════════════════════════════
+// LOG & PHASES
+// ═══════════════════════════════════
+function addLog(msg, type='line') {
   const area = document.getElementById('log-area');
   const div = document.createElement('div');
-  div.className = 'log-' + type;
-  div.textContent = new Date().toLocaleTimeString('es') + '  ' + msg;
-  area.appendChild(div);
-  area.scrollTop = area.scrollHeight;
+  div.className = type;
+  div.textContent = new Date().toLocaleTimeString('es')+'  '+msg;
+  area.appendChild(div); area.scrollTop = area.scrollHeight;
 }
-function clearLog() { document.getElementById('log-area').innerHTML = ''; }
-
-// ═══════════════════════════════════════════════
-// PHASES
-// ═══════════════════════════════════════════════
+function clearLog() { document.getElementById('log-area').innerHTML=''; }
 function setPhase(n) {
-  for (let i = 0; i < 5; i++) {
-    const el = document.getElementById('phase-' + i);
-    el.className = 'phase-step' + (i < n ? ' done' : i === n ? ' active' : '');
-  }
+  for(let i=0;i<5;i++)
+    document.getElementById('phase-'+i).className='phase-step'+(i<n?' done':i===n?' active':'');
 }
 
-// ═══════════════════════════════════════════════
-// MAIN REVIEW PIPELINE
-// ═══════════════════════════════════════════════
-async function startReview() {
-  const paperText = document.getElementById('paper-text').value.trim();
-  const paperTitle = document.getElementById('paper-title').value.trim();
-  const apiKey = state.apiKey || document.getElementById('api-key-input').value.trim();
-
-  if (!paperText) { alert('Por favor, pega el texto del paper o sube un archivo.'); return; }
-  if (!apiKey) { alert('Configura tu API key en Ajustes primero.'); showView('settings'); return; }
-
-  state.apiKey = apiKey;
-  state.paperText = paperText;
-  state.paperTitle = paperTitle || 'Paper sin título';
-  state.discipline = document.getElementById('discipline').value;
-  state.reviewLang = document.getElementById('review-lang').value;
-  state.reviewMode = document.getElementById('review-mode').value;
-  state.running = true;
-  state.stopped = false;
-
-  // Get model from settings
-  state.model = document.getElementById('model-select').value;
-  state.temperature = parseFloat(document.getElementById('temp-input').value) || 0.3;
-  state.maxTokens = parseInt(document.getElementById('max-tokens-input').value) || 1500;
-
-  // UI state
-  document.getElementById('start-btn').disabled = true;
-  document.getElementById('start-spinner').style.display = 'inline-block';
-  document.getElementById('start-label').textContent = 'Procesando...';
-  document.getElementById('stop-btn').disabled = false;
-
-  // Switch to review view
-  showView('review');
-  clearLog();
-  renderAgentStatusGrid();
-  agents.forEach(a => updateAgentStatus(a.id, 'idle'));
-  setPhase(0);
-
-  addLog('🚀 Iniciando pipeline de revisión multiagente...', 'info');
-  addLog(`📄 Paper: "${state.paperTitle}"`, 'info');
-  addLog(`🔧 Modo: ${state.reviewMode} | Disciplina: ${state.discipline}`, 'info');
-
-  const results = {};
-  const disciplineLabels = { general: 'General', biomedical: 'Biomédica', cs: 'Informática/IA', physics: 'Física/Matemáticas', social: 'Ciencias Sociales', engineering: 'Ingeniería' };
-  const langLabels = { es: 'español', en: 'English' };
-
-  // Determine agents to run based on mode
-  let agentsToRun = [...agents];
-  if (state.reviewMode === 'quick') agentsToRun = agents.filter(a => ['reader','synthesizer','scorer'].includes(a.id));
-  if (state.reviewMode === 'technical') agentsToRun = agents.filter(a => ['reader','methodologist','critic','synthesizer','scorer'].includes(a.id));
-  if (state.reviewMode === 'editorial') agentsToRun = agents.filter(a => ['reader','editor','synthesizer','scorer'].includes(a.id));
-
-  const tStart = Date.now();
-
-  for (let i = 0; i < agentsToRun.length; i++) {
-    if (state.stopped) { addLog('⏹ Revisión detenida por el usuario.', 'err'); break; }
-    const agent = agentsToRun[i];
-    setPhase(agent.phase);
-    updateAgentStatus(agent.id, 'running');
-    addLog(`⟳ Ejecutando agente: ${agent.icon} ${agent.name}...`, 'run');
-
-    // Build context from previous results
-    const prevAnalysis = Object.entries(results).map(([k, v]) => `=== ${k.toUpperCase()} ===\n${v}`).join('\n\n');
-
-    // Fill prompt template
-    let prompt = agent.prompt
-      .replace(/\{\{paper_text\}\}/g, state.paperText.substring(0, 6000))
-      .replace(/\{\{paper_title\}\}/g, state.paperTitle)
-      .replace(/\{\{discipline\}\}/g, disciplineLabels[state.discipline] || state.discipline)
-      .replace(/\{\{lang\}\}/g, langLabels[state.reviewLang] || state.reviewLang)
-      .replace(/\{\{previous_analysis\}\}/g, prevAnalysis.substring(0, 4000))
-      .replace(/\{\{scores\}\}/g, JSON.stringify(results.scorer || {}));
-
-    try {
-      const resp = await callLLM(apiKey, prompt, state.model, state.temperature, state.maxTokens);
-      results[agent.id] = resp;
-      updateAgentStatus(agent.id, 'done');
-      addLog(`✓ ${agent.name} completado (${resp.length} chars)`, 'ok');
-    } catch (err) {
-      updateAgentStatus(agent.id, 'error');
-      addLog(`✗ Error en ${agent.name}: ${err.message}`, 'err');
-      results[agent.id] = `[Error: ${err.message}]`;
-    }
-
-    setPhase(agent.phase + 1);
-  }
-
-  const elapsed = ((Date.now() - tStart) / 1000).toFixed(0);
-  addLog(`✅ Pipeline completado en ${elapsed}s`, 'ok');
-  setPhase(5);
-
-  // Parse scorer result
-  let scores = null;
-  if (results.scorer) {
-    try {
-      const cleaned = results.scorer.replace(/```json|```/g, '').trim();
-      scores = JSON.parse(cleaned);
-    } catch (e) { addLog('⚠ No se pudieron parsear las puntuaciones JSON', 'info'); }
-  }
-
-  state.results = { raw: results, scores, elapsed };
-  document.getElementById('run-summary').textContent = `✅ Completado en ${elapsed}s · ${agentsToRun.length} agentes`;
-
-  // Update stats
-  state.stats.reviews += 1;
-  const tokenEst = Math.round(Object.values(results).join('').length / 4);
-  state.stats.tokens += tokenEst;
-  state.stats.cost += tokenEst * 0.00000015;
-  localStorage.setItem('autoreviewer_stats', JSON.stringify(state.stats));
-  updateStatsUI();
-
-  // Show scores
-  renderScoresView(results, scores);
-
-  // Reset buttons
-  state.running = false;
-  document.getElementById('start-btn').disabled = false;
-  document.getElementById('start-spinner').style.display = 'none';
-  document.getElementById('start-label').textContent = '▶ Iniciar revisión';
-  document.getElementById('stop-btn').disabled = true;
-
-  showNotice('🎉 Revisión completada', 'ok');
-}
-
-async function callLLM(apiKey, userPrompt, model, temperature, maxTokens) {
-  const isAnthropicModel = model.startsWith('claude');
-  
-  if (isAnthropicModel) {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: maxTokens,
-        messages: [{ role: 'user', content: userPrompt }]
-      })
-    });
-    if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || resp.statusText); }
-    const data = await resp.json();
-    return data.content.map(b => b.text || '').join('');
-  } else {
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model,
-        temperature,
-        max_tokens: maxTokens,
-        messages: [{ role: 'user', content: userPrompt }]
-      })
-    });
-    if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || resp.statusText); }
-    const data = await resp.json();
-    return data.choices[0].message.content;
-  }
-}
-
-function stopReview() {
-  state.stopped = true;
-  state.running = false;
-  document.getElementById('stop-btn').disabled = true;
-  document.getElementById('start-btn').disabled = false;
-  document.getElementById('start-spinner').style.display = 'none';
-  document.getElementById('start-label').textContent = '▶ Iniciar revisión';
-  addLog('⏹ Deteniendo después del agente actual...', 'info');
-}
-
-// ═══════════════════════════════════════════════
-// RENDER SCORES VIEW
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
+// RENDER SCORES
+// ═══════════════════════════════════
 function renderScoresView(results, scores) {
   document.getElementById('scores-placeholder').style.display = 'none';
   document.getElementById('scores-content').style.display = 'block';
 
-  // Score cards
   const grid = document.getElementById('scores-grid');
-  const scoreData = scores || {};
+  const d = scores || {};
   const metrics = [
-    { key: 'methodology', label: 'Metodología', icon: '🔬' },
-    { key: 'content', label: 'Contenido', icon: '🧠' },
-    { key: 'editorial', label: 'Editorial', icon: '✍️' },
-    { key: 'ethics', label: 'Ética', icon: '⚖️' },
-    { key: 'overall', label: 'GLOBAL', icon: '⭐' }
+    {key:'methodology',label:'Metodología',icon:'🔬'},
+    {key:'content',label:'Contenido',icon:'🧠'},
+    {key:'editorial',label:'Editorial',icon:'✍️'},
+    {key:'ethics',label:'Ética',icon:'⚖️'},
+    {key:'overall',label:'GLOBAL',icon:'⭐'}
   ];
   grid.innerHTML = '';
   metrics.forEach(m => {
-    const val = scoreData[m.key];
-    const pct = val ? (val / 10 * 100) : 0;
-    const cls = val >= 7 ? 'score-high' : val >= 5 ? 'score-mid' : 'score-low';
-    const barColor = val >= 7 ? 'var(--accent3)' : val >= 5 ? 'var(--warn)' : 'var(--danger)';
+    const val = d[m.key];
+    const pct = val?(val/10*100):0;
+    const cls = val>=7?'score-high':val>=5?'score-mid':'score-low';
+    const bar = val>=7?'var(--accent3)':val>=5?'var(--warn)':'var(--danger)';
     grid.innerHTML += `<div class="score-card">
-      <div class="score-val ${cls}">${val != null ? val.toFixed(1) : '—'}</div>
+      <div class="score-val ${cls}">${val!=null?val.toFixed(1):'—'}</div>
       <div class="score-label">${m.icon} ${m.label}</div>
-      <div class="score-bar"><div class="score-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+      <div class="score-bar"><div class="score-bar-fill" style="width:${pct}%;background:${bar}"></div></div>
     </div>`;
   });
-
-  // Recommendation badge
-  if (scoreData.recommendation) {
-    const recColors = { 'Accept': 'badge-green', 'Minor Revision': 'badge-accent', 'Major Revision': 'badge-warn', 'Reject': '' };
-    const cls = recColors[scoreData.recommendation] || 'badge-purple';
-    grid.innerHTML += `<div class="score-card" style="grid-column:span 1">
+  if (d.recommendation) {
+    const rc = {'Accept':'badge-green','Minor Revision':'badge-accent','Major Revision':'badge-warn','Reject':'badge-warn'};
+    grid.innerHTML += `<div class="score-card">
       <div style="font-size:20px;margin-bottom:6px">📋</div>
-      <div style="font-size:13px;font-weight:600;color:var(--text)"><span class="badge ${cls}" style="font-size:12px;padding:4px 12px">${scoreData.recommendation || 'N/A'}</span></div>
-      <div class="score-label">Recomendación</div>
+      <span class="badge ${rc[d.recommendation]||'badge-purple'}" style="font-size:12px;padding:4px 12px">${d.recommendation}</span>
+      <div class="score-label" style="margin-top:8px">Recomendación</div>
     </div>`;
   }
 
-  // Feedback items
-  const feedbackList = document.getElementById('feedback-list');
-  feedbackList.innerHTML = '';
-  if (scoreData.feedback_items && scoreData.feedback_items.length) {
-    scoreData.feedback_items.forEach(item => {
-      const typeClass = { strength: 'fi-strength', weakness: 'fi-weakness', suggestion: 'fi-suggestion', question: 'fi-question' }[item.type] || 'fi-suggestion';
-      const typeLabel = { strength: '✅ Fortaleza', weakness: '⚠ Debilidad', suggestion: '💡 Sugerencia', question: '❓ Pregunta' }[item.type] || item.type;
-      feedbackList.innerHTML += `<div class="feedback-item">
-        <div class="fi-header">
-          <span class="fi-type ${typeClass}">${typeLabel}</span>
-          <span class="fi-section">${item.section || ''}</span>
-        </div>
+  const fl = document.getElementById('feedback-list');
+  fl.innerHTML = '';
+  if (d.feedback_items?.length) {
+    d.feedback_items.forEach(item => {
+      const tc={'strength':'fi-strength','weakness':'fi-weakness','suggestion':'fi-suggestion','question':'fi-question'}[item.type]||'fi-suggestion';
+      const tl={'strength':'✅ Fortaleza','weakness':'⚠ Debilidad','suggestion':'💡 Sugerencia','question':'❓ Pregunta'}[item.type]||item.type;
+      fl.innerHTML += `<div class="feedback-item">
+        <div class="fi-header"><span class="fi-type ${tc}">${tl}</span><span class="fi-section">${item.section||''}</span></div>
         <div class="fi-text">${escapeHtml(item.text)}</div>
       </div>`;
     });
   } else {
-    feedbackList.innerHTML = '<div class="placeholder"><span class="ico">💬</span>No se pudieron extraer items de feedback estructurado.</div>';
+    fl.innerHTML = '<div class="placeholder"><span class="ico">💬</span>No hay items de feedback estructurado.</div>';
   }
 
-  // Summary (synthesizer output)
-  const summaryEl = document.getElementById('summary-output');
-  const synthResult = results.synthesizer || results.reader || '';
-  summaryEl.innerHTML = markdownToHtml(synthResult || '<em>Sin resumen disponible.</em>');
+  const synthResult = results.synthesizer||results.reader||'';
+  document.getElementById('summary-output').innerHTML =
+    typeof marked !== 'undefined' ? marked.parse(synthResult||'*Sin resumen disponible.*') : fallbackMd(synthResult);
 
-  // Raw (all results)
   const rawEl = document.getElementById('raw-output');
-  const rawText = Object.entries(results).map(([k, v]) => `# ${k.toUpperCase()}\n\n${v}`).join('\n\n---\n\n');
-  rawEl.innerHTML = markdownToHtml(rawText);
+  const agentIcons = {reader:'📋',methodologist:'🔬',critic:'🔍',editor:'✍️',ethicist:'⚖️',synthesizer:'🎯',scorer:'📊'};
+  rawEl.innerHTML = Object.entries(results).map(([k,v],idx) => {
+    const icon = agentIcons[k]||'🤖';
+    const nameEs = agents.find(a=>a.id===k)?.nameEs||k;
+    const content = typeof marked!=='undefined' ? marked.parse(v||'') : fallbackMd(v||'');
+    return `<div class="agent-section">
+      <div class="agent-section-header" onclick="toggleAgentSection(this,${idx})">
+        <h4>${icon} ${k.toUpperCase()} — ${nameEs}</h4>
+        <span class="toggle-ico">▾</span>
+      </div>
+      <div class="agent-section-body" id="asb-${idx}">${content}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('asb-0')?.classList.add('open');
+  document.querySelector('.agent-section-header')?.classList.add('open');
+}
+function toggleAgentSection(header, idx) {
+  document.getElementById('asb-'+idx)?.classList.toggle('open');
+  header.classList.toggle('open');
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 // TABS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 function switchRTab(btn, tabId) {
-  document.querySelectorAll('.rtab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.rtab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.rtab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.rtab-content').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(tabId).classList.add('active');
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 // HELPERS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
-function markdownToHtml(md) {
+function fallbackMd(md) {
   if (!md) return '';
   return md
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-    .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^(?!<[hbuol])/gm, '')
-    .replace(/\n/g, '<br>');
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>').replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/^# (.+)$/gm,'<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`(.+?)`/g,'<code>$1</code>').replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g,'<ul>$&</ul>')
+    .replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
 }
-
 function copyReview() {
   if (!state.results) return;
-  const text = Object.entries(state.results.raw).map(([k, v]) => `=== ${k.toUpperCase()} ===\n${v}`).join('\n\n');
-  navigator.clipboard.writeText(text).then(() => showNotice('📋 Copiado al portapapeles', 'ok'));
+  const txt = Object.entries(state.results.raw).map(([k,v])=>`=== ${k.toUpperCase()} ===\n${v}`).join('\n\n');
+  navigator.clipboard.writeText(txt).then(()=>showNotice('📋 Copiado al portapapeles','ok'));
 }
-
 function downloadReview() {
   if (!state.results) return;
-  const text = Object.entries(state.results.raw).map(([k, v]) => `=== ${k.toUpperCase()} ===\n${v}`).join('\n\n---\n\n');
-  const blob = new Blob([text], { type: 'text/plain' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  const txt = Object.entries(state.results.raw).map(([k,v])=>`=== ${k.toUpperCase()} ===\n${v}`).join('\n\n---\n\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt],{type:'text/plain'}));
   a.download = `autoreviewer_${state.paperTitle.replace(/\s+/g,'_').substring(0,30)}.txt`;
   a.click();
 }
-
 function resetAll() {
   document.getElementById('paper-text').value = '';
+  document.getElementById('paper-text').readOnly = false;
   document.getElementById('paper-title').value = '';
-  document.getElementById('paper-info').style.display = 'none';
-  state.results = null;
+  document.getElementById('paper-info').classList.remove('visible');
+  document.getElementById('text-lock-btn').style.display = 'none';
+  document.getElementById('char-count').textContent = '';
+  state.results = null; state.textLocked = false;
 }
-
-function showNotice(msg, type = 'info') {
-  const typeClass = { ok: 'notice-ok', info: 'notice-info', warn: 'notice-warn', err: 'notice-err' }[type] || 'notice-info';
+function showNotice(msg, type='info') {
+  const tc={ok:'notice-ok',info:'notice-info',warn:'notice-warn',err:'notice-err'}[type]||'notice-info';
   const div = document.createElement('div');
-  div.className = `notice ${typeClass}`;
-  div.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:999;max-width:320px;animation:slideIn .2s ease';
+  div.className = `notice ${tc}`;
+  div.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;max-width:340px;animation:slideIn .2s ease;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.12)';
   div.textContent = msg;
+  div.onclick = () => div.remove();
   document.body.appendChild(div);
-  setTimeout(() => div.remove(), 3000);
+  setTimeout(()=>div.remove(), 4000);
 }
-
 function updateStatsUI() {
   document.getElementById('stat-reviews').textContent = state.stats.reviews;
   document.getElementById('stat-tokens').textContent = state.stats.tokens.toLocaleString();
-  document.getElementById('stat-cost').textContent = '$' + state.stats.cost.toFixed(4);
+  document.getElementById('stat-cost').textContent = '$'+state.stats.cost.toFixed(4);
 }
-
 function clearStats() {
-  state.stats = { reviews: 0, tokens: 0, cost: 0 };
-  localStorage.removeItem('autoreviewer_stats');
-  updateStatsUI();
+  state.stats = {reviews:0,tokens:0,cost:0};
+  localStorage.removeItem('ar_stats'); updateStatsUI();
 }
 
-// CSS animation for notices
-const style = document.createElement('style');
-style.textContent = `@keyframes slideIn { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }`;
-document.head.appendChild(style);
+const _style = document.createElement('style');
+_style.textContent = `@keyframes slideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`;
+document.head.appendChild(_style);
 </script>
 </body>
 </html>
